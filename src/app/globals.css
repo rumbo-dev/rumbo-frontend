@@ -1,0 +1,73 @@
+@import url('https://rsms.me/inter/inter.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --rumbo-navy: #12284C;
+  --rumbo-coral: #E8856A;
+  --rumbo-green: #0EA874;
+  --rumbo-red: #E54A41;
+  --rumbo-amber: #F59E0B;
+  --rumbo-light: #F8F9FA;
+  --rumbo-border: #E5E7EB;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+  background-color: #F8F9FA;
+  color: #12284C;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  color: #12284C;
+}
+
+/* Rumbo Design Tokens */
+.btn-primary {
+  @apply px-6 py-2 bg-rumbo-coral text-white font-semibold rounded-lg hover:bg-opacity-90 transition;
+}
+
+.btn-secondary {
+  @apply px-6 py-2 bg-white border border-rumbo-navy text-rumbo-navy font-semibold rounded-lg hover:bg-rumbo-light transition;
+}
+
+.card {
+  @apply bg-white border border-rumbo-border rounded-2xl shadow-sm;
+}
+
+.badge-critical {
+  @apply inline-block bg-red-50 text-rumbo-red px-3 py-1 rounded-lg font-semibold text-xs;
+}
+
+.badge-warning {
+  @apply inline-block bg-yellow-50 text-rumbo-amber px-3 py-1 rounded-lg font-semibold text-xs;
+}
+
+.badge-success {
+  @apply inline-block bg-emerald-50 text-rumbo-green px-3 py-1 rounded-lg font-semibold text-xs;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #999;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
