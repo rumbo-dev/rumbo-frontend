@@ -1,21 +1,41 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import axios from 'axios'
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { ArrowLeft, Ship, MapPin, Weight, DollarSign, Mail } from 'lucide-react'
+import { EmailDraftCard } from '@/components/EmailDraftCard'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+interface Operation {
+  id: string
+  operationCode: string
+  containerNumber: string
+  status: string
+  currentStage: string
+  originPort: string
+  originCountry: string
+  destinationPort: string
+  destinationCountry: string
+  weightKg: number
+  incoterm: string
+  clientName: string
+  costEstimate: number
+  costActual?: number
+  eta?: string
+  priority: string
+  notes?: string
+  tasks: Task[]
+  journeySteps: JourneyStep[]
+  timelineEvents: TimelineEvent[]
+}
 
 interface Task {
   id: string
   title: string
   description: string
-  priority: string
   status: string
+  priority: string
   createdByAi: boolean
   aiConfidence?: number
-  estimatedCost?: number
-  dueDate?: string
 }
 
 interface JourneyStep {
@@ -23,287 +43,264 @@ interface JourneyStep {
   stepNumber: number
   stepName: string
   status: string
-  estimatedDate?: string
   actualDate?: string
 }
 
 interface TimelineEvent {
   id: string
   title: string
+  eventType: string
   timestamp: string
-  location?: string
 }
 
-interface Operation {
+interface EmailDraft {
   id: string
-  operationCode: string
-  containerNumber: string
-  clientName: string
-  originPort: string
-  destinationPort: string
-  weightKg: number
-  incoterm: string
-  shippingLine: string
-  costEstimate: number
-  eta?: string
-  tasks: Task[]
-  journeySteps: JourneyStep[]
-  timelineEvents: TimelineEvent[]
+  to: string
+  subject: string
+  body: string
+  status: 'DRAFT' | 'APPROVED' | 'SENT' | 'REJECTED'
+  aiGenerated: boolean
+  aiReasoning?: string
+  sentAt?: string
+  createdAt: string
 }
 
-export default function OperationDetail({ params }: { params: { id: string } }) {
+export default function OperationPage() {
+  const params = useParams()
+  const router = useRouter()
+  const operationId = params.id as string
+
   const [operation, setOperation] = useState<Operation | null>(null)
+  const [drafts, setDrafts] = useState<EmailDraft[]>([])
   const [loading, setLoading] = useState(true)
-  const [token, setToken] = useState<string>('')
-  const [updating, setUpdating] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const t = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-    if (t) {
-      setToken(t)
-      fetchOperation(t)
-    }
-  }, [])
+    fetchOperation()
+    fetchDrafts()
+  }, [operationId])
 
-  const fetchOperation = async (authToken: string) => {
+  const fetchOperation = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/operations/${params.id}`, {
-        headers: { Authorization: `Bearer ${authToken}` },
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/operations/${operationId}`, {
+        headers: { Authorization: `Bearer ${token}` },
       })
-      setOperation(response.data.data)
-    } catch (error) {
-      console.error('Error fetching operation:', error)
+      if (!response.ok) throw new Error('Failed to fetch operation')
+      const data = await response.json()
+      setOperation(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
     }
   }
 
-  const updateTaskStatus = async (taskId: string, newStatus: string) => {
-    setUpdating(taskId)
+  const fetchDrafts = async () => {
     try {
-      await axios.patch(`${API_URL}/api/tasks/${taskId}`, { status: newStatus }, {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/emails/drafts/${operationId}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (operation) {
-        setOperation({
-          ...operation,
-          tasks: operation.tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t),
-        })
+      if (response.ok) {
+        const data = await response.json()
+        setDrafts(data)
       }
-    } catch (error) {
-      console.error('Error updating task:', error)
-    } finally {
-      setUpdating(null)
+    } catch (err) {
+      console.error('Failed to fetch drafts:', err)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600">Cargando...</p>
-      </div>
-    )
-  }
-
-  if (!operation) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600">Operación no encontrada</p>
-      </div>
-    )
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'HIGH':
-      case 'CRITICAL':
-        return 'bg-red-100 text-red-700'
-      case 'NORMAL':
-        return 'bg-yellow-100 text-yellow-700'
-      default:
-        return 'bg-green-100 text-green-700'
+  const handleApproveDraft = async (draftId: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/emails/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ draftId }),
+      })
+      if (!response.ok) throw new Error('Failed to send email')
+      await fetchDrafts()
+    } catch (err) {
+      console.error('Error sending email:', err)
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'COMPLETED':
-        return 'bg-green-100 text-green-700'
-      case 'IN_PROGRESS':
-        return 'bg-blue-100 text-blue-700'
-      case 'PENDING':
-        return 'bg-gray-100 text-gray-700'
-      default:
-        return 'bg-gray-100 text-gray-700'
-    }
+  if (loading) return <div className="p-8 text-center">Cargando...</div>
+  if (error) return <div className="p-8 text-center text-red-600">{error}</div>
+  if (!operation) return <div className="p-8 text-center">Operación no encontrada</div>
+
+  const statusColors = {
+    DRAFT: 'text-amber-700 bg-amber-50',
+    ACTIVE: 'text-emerald-700 bg-emerald-50',
+    COMPLETED: 'text-blue-700 bg-blue-50',
+  }
+
+  const priorityColors = {
+    LOW: 'text-gray-700 bg-gray-50',
+    NORMAL: 'text-blue-700 bg-blue-50',
+    HIGH: 'text-orange-700 bg-orange-50',
+    CRITICAL: 'text-red-700 bg-red-50',
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <Link href="/dashboard" className="text-blue-600 hover:text-blue-900 text-sm font-semibold mb-3 inline-block">
-            ← Volver al Dashboard
-          </Link>
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{operation.containerNumber}</h1>
-              <p className="text-gray-500 mt-1">{operation.operationCode} · {operation.clientName}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-blue-600">${(operation.costEstimate / 1000).toFixed(1)}k</p>
-              <p className="text-xs text-gray-500 mt-1">Costo estimado</p>
-            </div>
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #F8F9FA 0%, #FFFFFF 100%)' }}>
+      <div className="sticky top-0 z-40 border-b border-gray-200/50 bg-white/80 backdrop-blur-lg">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span className="font-medium">Operaciones</span>
+          </button>
+          <div className="text-right">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Operación</p>
+            <p className="text-lg font-bold text-gray-900">{operation.operationCode}</p>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Journey Progress */}
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
-          <h2 className="text-sm font-semibold text-gray-600 uppercase mb-4">Recorrido del Shipment</h2>
-          <div className="flex justify-between items-center gap-2">
-            {operation.journeySteps.map((step, idx) => (
-              <div key={step.id} className="flex-1 flex flex-col items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white mb-2 ${
-                  step.status === 'COMPLETED' ? 'bg-green-500' :
-                  step.status === 'CURRENT' ? 'bg-blue-500' :
-                  'bg-gray-300'
-                }`}>
-                  {step.status === 'COMPLETED' ? '✓' : step.status === 'CURRENT' ? '●' : '○'}
-                </div>
-                <p className="text-xs font-semibold text-center text-gray-700">{step.stepName}</p>
+        <div
+          className="mb-8 rounded-3xl border-2 border-gray-200/50 p-8 backdrop-blur-sm"
+          style={{ background: 'linear-gradient(135deg, rgba(18, 40, 76, 0.05), rgba(232, 133, 106, 0.05))' }}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-white/60 p-3 backdrop-blur-sm">
+                <Ship className="h-5 w-5" style={{ color: '#12284C' }} />
               </div>
-            ))}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Container</p>
+                <p className="text-sm font-bold text-gray-900">{operation.containerNumber}</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-white/60 p-3 backdrop-blur-sm">
+                <MapPin className="h-5 w-5" style={{ color: '#12284C' }} />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Ruta</p>
+                <p className="text-sm font-bold text-gray-900">
+                  {operation.originPort} → {operation.destinationPort}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-white/60 p-3 backdrop-blur-sm">
+                <Weight className="h-5 w-5" style={{ color: '#12284C' }} />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Peso</p>
+                <p className="text-sm font-bold text-gray-900">{operation.weightKg.toLocaleString()} kg</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-white/60 p-3 backdrop-blur-sm">
+                <DollarSign className="h-5 w-5" style={{ color: '#12284C' }} />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Costo estimado</p>
+                <p className="text-sm font-bold text-gray-900">${operation.costEstimate.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={`px-4 py-2 rounded-full text-xs font-semibold ${statusColors[operation.status as keyof typeof statusColors]}`}>
+              {operation.status}
+            </span>
+            <span className={`px-4 py-2 rounded-full text-xs font-semibold ${priorityColors[operation.priority as keyof typeof priorityColors]}`}>
+              Prioridad: {operation.priority}
+            </span>
+            <span className="px-4 py-2 rounded-full text-xs font-semibold text-blue-700 bg-blue-50">
+              Stage: {operation.currentStage}
+            </span>
           </div>
         </div>
 
-        {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left: Operation Info */}
           <div className="lg:col-span-2">
-            {/* Operation Details */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">Detalles del Shipment</h2>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase">Puerto Origen</p>
-                  <p className="text-sm font-semibold text-gray-900 mt-1">{operation.originPort}</p>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">📧 Emails Sugeridos</h2>
+              <p className="text-sm text-gray-600">
+                {drafts.length === 0
+                  ? 'No hay emails sugeridos todavía'
+                  : `${drafts.length} email${drafts.length !== 1 ? 's' : ''} disponible${drafts.length !== 1 ? 's' : ''}`}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {drafts.length === 0 ? (
+                <div className="rounded-2xl border-2 border-dashed border-gray-300 p-12 text-center">
+                  <Mail className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 font-medium">Cuando IA detecte un email, verás los drafts aquí</p>
                 </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase">Puerto Destino</p>
-                  <p className="text-sm font-semibold text-gray-900 mt-1">{operation.destinationPort}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase">Peso</p>
-                  <p className="text-sm font-semibold text-gray-900 mt-1">{operation.weightKg.toLocaleString()} kg</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase">Incoterm</p>
-                  <p className="text-sm font-semibold text-gray-900 mt-1">{operation.incoterm}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase">Línea Marítima</p>
-                  <p className="text-sm font-semibold text-gray-900 mt-1">{operation.shippingLine}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase">Cliente</p>
-                  <p className="text-sm font-semibold text-gray-900 mt-1">{operation.clientName}</p>
-                </div>
+              ) : (
+                drafts.map((draft) => (
+                  <EmailDraftCard key={draft.id} draft={draft} onApprove={handleApproveDraft} onReject={() => {}} />
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 mb-4">✓ Tareas</h3>
+              <div className="space-y-3">
+                {operation.tasks.slice(0, 5).map((task) => (
+                  <div key={task.id} className="rounded-xl bg-white p-4 border border-gray-200/50 hover:border-gray-300 transition-all">
+                    <p className="text-sm font-semibold text-gray-900 mb-1">{task.title}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-gray-600">{task.status}</span>
+                      {task.createdByAi && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">AI</span>}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* AI Tasks */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">Tareas Recomendadas (IA)</h2>
-                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded font-semibold">
-                    {operation.tasks.filter(t => t.createdByAi).length} por IA
-                  </span>
-                </div>
-              </div>
-
-              <div className="divide-y divide-gray-200">
-                {operation.tasks.map(task => (
-                  <div key={task.id} className="p-6 hover:bg-gray-50 transition">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{task.title}</h3>
-                        <p className="text-sm text-gray-600 mt-1">{task.description}</p>
-                      </div>
-                      <span className={`text-xs font-semibold px-2 py-1 rounded ml-4 ${getPriorityColor(task.priority)}`}>
-                        {task.priority}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-4">
-                      <div className="flex items-center gap-4 text-xs">
-                        {task.createdByAi && (
-                          <div className="flex items-center gap-1">
-                            <span className="text-gray-500">IA Confianza:</span>
-                            <span className="font-semibold text-gray-900">{(task.aiConfidence || 0 * 100).toFixed(0)}%</span>
-                          </div>
-                        )}
-                        {task.estimatedCost && (
-                          <div className="text-gray-500">
-                            Est: <span className="font-semibold text-gray-900">${task.estimatedCost}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <select
-                        value={task.status}
-                        onChange={e => updateTaskStatus(task.id, e.target.value)}
-                        disabled={updating === task.id}
-                        className="text-xs font-semibold px-3 py-1 border border-gray-300 rounded bg-white cursor-pointer"
-                      >
-                        <option value="PENDING">Pendiente</option>
-                        <option value="IN_PROGRESS">En Progreso</option>
-                        <option value="COMPLETED">Completado</option>
-                      </select>
-                    </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 mb-4">🚢 Recorrido</h3>
+              <div className="space-y-2">
+                {operation.journeySteps.map((step) => (
+                  <div key={step.id} className="flex items-center gap-3 text-sm">
+                    <div
+                      className="h-3 w-3 rounded-full"
+                      style={{
+                        background: step.status === 'COMPLETED' ? '#0EA874' : step.status === 'IN_PROGRESS' ? '#E8856A' : '#E5E7EB',
+                      }}
+                    />
+                    <span className={step.status === 'COMPLETED' ? 'text-gray-900 font-semibold' : 'text-gray-600'}>{step.stepName}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Right: Timeline */}
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden h-fit">
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-              <h2 className="text-lg font-semibold text-gray-900">Timeline</h2>
-            </div>
-
-            <div className="p-6">
-              <div className="space-y-6">
-                {[
-                  { name: 'Booking Confirmado', date: '2024-01-15', status: 'done' },
-                  { name: 'Recepción en puerto', date: '2024-01-22', status: 'done' },
-                  { name: 'En océano', date: 'En curso', status: 'current' },
-                  { name: 'Arribo estimado', date: operation.eta || '+14 días', status: 'pending' },
-                  { name: 'Desembarque', date: 'Por confirmar', status: 'pending' },
-                  { name: 'Entrega final', date: 'Por confirmar', status: 'pending' },
-                ].map((item, idx) => (
-                  <div key={idx} className="flex gap-4">
-                    <div className="flex flex-col items-center">
-                      <div className={`w-3 h-3 rounded-full ${
-                        item.status === 'done' ? 'bg-green-500' :
-                        item.status === 'current' ? 'bg-blue-500' :
-                        'bg-gray-300'
-                      }`} />
-                      {idx < 5 && <div className={`w-0.5 h-12 mt-2 ${
-                        item.status === 'done' ? 'bg-green-500' : 'bg-gray-300'
-                      }`} />}
-                    </div>
-                    <div className="pb-2">
-                      <p className="text-sm font-semibold text-gray-900">{item.name}</p>
-                      <p className="text-xs text-gray-500 mt-1">{item.date}</p>
-                    </div>
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">📋 Timeline</h2>
+          <div className="rounded-2xl border-2 border-gray-200/50 bg-white p-6">
+            <div className="space-y-4">
+              {operation.timelineEvents.slice(0, 8).map((event) => (
+                <div key={event.id} className="flex gap-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
+                  <div className="text-xs text-gray-500 font-semibold w-24 shrink-0">
+                    {new Date(event.timestamp).toLocaleDateString('es-AR')}
                   </div>
-                ))}
-              </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{event.title}</p>
+                    <p className="text-xs text-gray-500">{event.eventType}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
