@@ -73,8 +73,8 @@ export default function Dashboard() {
         }),
       ])
 
-      setOperations(opsRes.data.data || [])
-      setKpis(kpisRes.data.data)
+      setOperations(opsRes.data || [])
+      setKpis(kpisRes.data)
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
@@ -89,7 +89,7 @@ export default function Dashboard() {
         headers: { Authorization: `Bearer ${token}` },
       })
 
-      setOperations([response.data.data, ...operations])
+      setOperations([response.data, ...operations])
       setShowModal(false)
       setFormData({
         operationCode: '',
