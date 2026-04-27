@@ -24,7 +24,7 @@ export default function Login() {
         password,
       })
 
-      if (response.data.success) {
+      if (response.data.token) {
         localStorage.setItem('token', response.data.token)
         router.push('/dashboard')
       }
