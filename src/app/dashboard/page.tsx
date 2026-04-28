@@ -3,8 +3,9 @@
 import { useState, useEffect, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { Search, Plus, AlertCircle } from 'lucide-react'
+import { Search, Plus, AlertCircle, Mail } from 'lucide-react'
 import { StatusBadge, Button, EmptyState, SkeletonRow } from '@/components/index'
+import EmailIntakeModal from '@/components/EmailIntakeModal'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [showModal, setShowModal] = useState(false)
+  const [showEmailIntake, setShowEmailIntake] = useState(false)
 
   const [formData, setFormData] = useState({
     operationCode: '',
@@ -164,6 +166,10 @@ export default function Dashboard() {
             <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, lineHeight: '32px' }}>Operations</h1>
             <p style={{ fontSize: '14px', color: 'var(--text-tertiary)', margin: '4px 0 0 0' }}>Manage and track your shipments in real-time</p>
           </div>
+          <Button variant="secondary" onClick={() => setShowEmailIntake(true)}>
+            <Mail size={16} />
+            Process email
+          </Button>
           <Button onClick={() => setShowModal(true)}>
             <Plus size={16} strokeWidth={2.2} />
             New operation
@@ -198,7 +204,11 @@ export default function Dashboard() {
           {loading ? (
             <><SkeletonRow /><SkeletonRow /><SkeletonRow /><SkeletonRow /></>
           ) : filteredOps.length === 0 ? (
-            <EmptyState title="No operations found" description={searchQuery ? 'Try adjusting your search or filters' : 'Create your first operation to get started'} action={!searchQuery && (<Button onClick={() => setShowModal(true)}><Plus size={16} />New operation</Button>)} />
+            <EmptyState title="No operations found" description={searchQuery ? 'Try adjusting your search or filters' : 'Create your first operation to get started'} action={!searchQuery && (<Button variant="secondary" onClick={() => setShowEmailIntake(true)}>
+            <Mail size={16} />
+            Process email
+          </Button>
+          <Button onClick={() => setShowModal(true)}><Plus size={16} />New operation</Button>)} />
           ) : (
             filteredOps.map((op, idx) => {
               const eta = getETA(op.eta)
@@ -233,6 +243,8 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {showEmailIntake && <EmailIntakeModal onClose={() => setShowEmailIntake(false)} />}
 
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '32px' }} onClick={() => setShowModal(false)}>
