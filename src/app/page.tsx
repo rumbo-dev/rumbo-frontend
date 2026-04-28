@@ -33,9 +33,14 @@ export default function Login() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--surface-app)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div style={{ width: '100%', maxWidth: '400px' }}>
+        {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)' }}>Rumbo</div>
-          <div style={{ fontSize: '14px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+          <img
+            src="/logo-rumbo.png"
+            alt="Rumbo"
+            style={{ height: '48px', width: 'auto', display: 'inline-block' }}
+          />
+          <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '8px' }}>
             Freight forwarding platform
           </div>
         </div>
@@ -91,7 +96,10 @@ export default function Login() {
                 fontWeight: 500,
                 cursor: loading ? 'not-allowed' : 'pointer',
                 opacity: loading ? 0.5 : 1,
+                transition: 'background 120ms ease',
               }}
+              onMouseEnter={(e) => !loading && (e.currentTarget.style.background = 'var(--rumbo-navy-hover)')}
+              onMouseLeave={(e) => !loading && (e.currentTarget.style.background = 'var(--rumbo-navy)')}
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </button>

@@ -147,7 +147,7 @@ export default function Dashboard() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--surface-app)' }}>
       <nav style={{ height: '56px', background: 'var(--surface-card)', borderBottom: '1px solid var(--border-default)', padding: '0 32px', display: 'flex', alignItems: 'center' }}>
-        <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginRight: '40px' }}>Rumbo</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '40px' }}><img src='/logo-icon.png' alt='Rumbo' style={{ height: '24px', width: 'auto' }} /><span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>Rumbo</span></div>
         <div style={{ display: 'flex', gap: '4px', height: '56px', alignItems: 'center' }}>
           <NavLink active>Operations</NavLink>
           <NavLink>Analytics</NavLink>
@@ -269,7 +269,7 @@ export default function Dashboard() {
 }
 
 function NavLink({ children, active }: { children: ReactNode; active?: boolean }) {
-  return (<div style={{ height: '56px', padding: '0 12px', display: 'inline-flex', alignItems: 'center', fontSize: '14px', fontWeight: 500, color: active ? 'var(--text-primary)' : 'var(--text-tertiary)', borderBottom: active ? '2px solid var(--rumbo-navy)' : '2px solid transparent', cursor: 'pointer' }}>{children}</div>)
+  return (<div style={{ height: '56px', padding: '0 12px', display: 'inline-flex', alignItems: 'center', fontSize: '14px', fontWeight: 500, color: active ? 'var(--text-primary)' : 'var(--text-tertiary)', borderBottom: active ? '2px solid var(--rumbo-coral)' : '2px solid transparent', cursor: 'pointer' }}>{children}</div>)
 }
 
 function HeaderCell({ children, align = 'left' }: { children: ReactNode; align?: 'left' | 'right' }) {

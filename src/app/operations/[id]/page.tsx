@@ -154,7 +154,7 @@ export default function OperationPage() {
     <div style={{ minHeight: '100vh', background: 'var(--surface-app)' }}>
       {/* Top Nav */}
       <nav style={{ height: '56px', background: 'var(--surface-card)', borderBottom: '1px solid var(--border-default)', padding: '0 32px', display: 'flex', alignItems: 'center' }}>
-        <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginRight: '40px' }}>Rumbo</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '40px' }}><img src='/logo-icon.png' alt='Rumbo' style={{ height: '24px', width: 'auto' }} /><span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>Rumbo</span></div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--rumbo-navy)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600 }}>D</div>
         </div>
@@ -341,8 +341,8 @@ function DraftItem({ draft, onApprove }: { draft: EmailDraft; onApprove: () => v
   return (
     <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-        <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'var(--info-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Mail size={14} style={{ color: 'var(--info-fg)' }} />
+        <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'var(--rumbo-coral-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Mail size={14} style={{ color: 'var(--rumbo-coral)' }} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
