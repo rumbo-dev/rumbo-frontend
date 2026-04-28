@@ -149,7 +149,10 @@ export default function Dashboard() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--surface-app)' }}>
       <nav style={{ height: '56px', background: 'var(--surface-card)', borderBottom: '1px solid var(--border-default)', padding: '0 32px', display: 'flex', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '40px' }}><img src='/logo-icon.png' alt='Rumbo' style={{ height: '24px', width: 'auto' }} /><span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>Rumbo</span></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '40px' }}>
+          <img src='/logo-icon.png' alt='Rumbo' style={{ height: '24px', width: 'auto' }} />
+          <span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>Rumbo</span>
+        </div>
         <div style={{ display: 'flex', gap: '4px', height: '56px', alignItems: 'center' }}>
           <NavLink active>Operations</NavLink>
           <NavLink>Analytics</NavLink>
@@ -166,14 +169,16 @@ export default function Dashboard() {
             <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, lineHeight: '32px' }}>Operations</h1>
             <p style={{ fontSize: '14px', color: 'var(--text-tertiary)', margin: '4px 0 0 0' }}>Manage and track your shipments in real-time</p>
           </div>
-          <Button variant="secondary" onClick={() => setShowEmailIntake(true)}>
-            <Mail size={16} />
-            Process email
-          </Button>
-          <Button onClick={() => setShowModal(true)}>
-            <Plus size={16} strokeWidth={2.2} />
-            New operation
-          </Button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Button variant="secondary" onClick={() => setShowEmailIntake(true)}>
+              <Mail size={16} />
+              Process email
+            </Button>
+            <Button onClick={() => setShowModal(true)}>
+              <Plus size={16} strokeWidth={2.2} />
+              New operation
+            </Button>
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
@@ -204,11 +209,7 @@ export default function Dashboard() {
           {loading ? (
             <><SkeletonRow /><SkeletonRow /><SkeletonRow /><SkeletonRow /></>
           ) : filteredOps.length === 0 ? (
-            <EmptyState title="No operations found" description={searchQuery ? 'Try adjusting your search or filters' : 'Create your first operation to get started'} action={!searchQuery && (<Button variant="secondary" onClick={() => setShowEmailIntake(true)}>
-            <Mail size={16} />
-            Process email
-          </Button>
-          <Button onClick={() => setShowModal(true)}><Plus size={16} />New operation</Button>)} />
+            <EmptyState title="No operations found" description={searchQuery ? 'Try adjusting your search or filters' : 'Create your first operation to get started'} action={!searchQuery && (<Button onClick={() => setShowModal(true)}><Plus size={16} />New operation</Button>)} />
           ) : (
             filteredOps.map((op, idx) => {
               const eta = getETA(op.eta)
