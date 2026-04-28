@@ -17,73 +17,90 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     setError('')
-
     try {
-      const response = await axios.post(`${API_URL}/api/auth/login`, {
-        email,
-        password,
-      })
-
+      const response = await axios.post(`${API_URL}/api/auth/login`, { email, password })
       if (response.data.token) {
         localStorage.setItem('token', response.data.token)
         router.push('/dashboard')
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al iniciar sesión')
+      setError(err.response?.data?.error || 'Sign in failed')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Rumbo</h1>
-          <p className="text-gray-600 mt-2">Freight Forwarding Platform</p>
+    <div style={{ minHeight: '100vh', background: 'var(--surface-app)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+      <div style={{ width: '100%', maxWidth: '400px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)' }}>Rumbo</div>
+          <div style={{ fontSize: '14px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+            Freight forwarding platform
+          </div>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="tu@email.com"
-            />
-          </div>
+        <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: '8px', padding: '32px' }}>
+          <h1 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>Sign in</h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', margin: '0 0 24px 0' }}>
+            Welcome back. Enter your credentials to continue.
+          </p>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="••••••"
-            />
-          </div>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-              {error}
+          <form onSubmit={handleLogin}>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '6px', border: '1px solid var(--border-default)', fontSize: '14px', background: 'var(--surface-card)' }}
+              />
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
-          >
-            {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
-          </button>
-        </form>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '6px', border: '1px solid var(--border-default)', fontSize: '14px', background: 'var(--surface-card)' }}
+              />
+            </div>
 
-        <p className="text-center text-gray-600 text-sm mt-6">
-          Demo: cualquier email + contraseña
-        </p>
+            {error && (
+              <div style={{ background: 'var(--danger-bg)', color: 'var(--danger-fg)', padding: '10px 12px', borderRadius: '6px', fontSize: '13px', marginBottom: '16px' }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%',
+                height: '36px',
+                background: 'var(--rumbo-navy)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 500,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.5 : 1,
+              }}
+            >
+              {loading ? 'Signing in...' : 'Sign in'}
+            </button>
+          </form>
+        </div>
+
+        <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-quaternary)', marginTop: '24px' }}>
+          Demo credentials are pre-filled
+        </div>
       </div>
     </div>
   )
