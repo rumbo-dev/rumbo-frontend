@@ -4,15 +4,16 @@ import { ReactNode } from 'react'
 
 // ============ STATUS BADGE ============
 const STATUS_CONFIGS: Record<string, { bg: string; fg: string; dot: string; label: string }> = {
-  IN_TRANSIT: { bg: 'var(--info-bg)', fg: 'var(--info-fg)', dot: 'var(--info-dot)', label: 'In transit' },
-  ACTIVE: { bg: 'var(--info-bg)', fg: 'var(--info-fg)', dot: 'var(--info-dot)', label: 'Active' },
-  IN_PROGRESS: { bg: 'var(--info-bg)', fg: 'var(--info-fg)', dot: 'var(--info-dot)', label: 'In progress' },
-  COMPLETED: { bg: 'var(--success-bg)', fg: 'var(--success-fg)', dot: 'var(--success-dot)', label: 'Completed' },
-  PENDING: { bg: 'var(--warning-bg)', fg: 'var(--warning-fg)', dot: 'var(--warning-dot)', label: 'Pending' },
-  DRAFT: { bg: 'var(--warning-bg)', fg: 'var(--warning-fg)', dot: 'var(--warning-dot)', label: 'Draft' },
-  BLOCKED: { bg: 'var(--danger-bg)', fg: 'var(--danger-fg)', dot: 'var(--danger-dot)', label: 'Blocked' },
-  CRITICAL: { bg: 'var(--danger-bg)', fg: 'var(--danger-fg)', dot: 'var(--danger-dot)', label: 'Critical' },
-  CURRENT: { bg: 'var(--info-bg)', fg: 'var(--info-fg)', dot: 'var(--info-dot)', label: 'Current' },
+  IN_TRANSIT: { bg: 'var(--info-bg)', fg: 'var(--info-fg)', dot: 'var(--info-dot)', label: 'En tránsito' },
+  ACTIVE: { bg: 'var(--info-bg)', fg: 'var(--info-fg)', dot: 'var(--info-dot)', label: 'Activa' },
+  IN_PROGRESS: { bg: 'var(--info-bg)', fg: 'var(--info-fg)', dot: 'var(--info-dot)', label: 'En progreso' },
+  COMPLETED: { bg: 'var(--success-bg)', fg: 'var(--success-fg)', dot: 'var(--success-dot)', label: 'Completada' },
+  PENDING: { bg: 'var(--warning-bg)', fg: 'var(--warning-fg)', dot: 'var(--warning-dot)', label: 'Pendiente' },
+  DRAFT: { bg: 'var(--warning-bg)', fg: 'var(--warning-fg)', dot: 'var(--warning-dot)', label: 'Borrador' },
+  BLOCKED: { bg: 'var(--danger-bg)', fg: 'var(--danger-fg)', dot: 'var(--danger-dot)', label: 'Bloqueada' },
+  CRITICAL: { bg: 'var(--danger-bg)', fg: 'var(--danger-fg)', dot: 'var(--danger-dot)', label: 'Crítica' },
+  CURRENT: { bg: 'var(--info-bg)', fg: 'var(--info-fg)', dot: 'var(--info-dot)', label: 'Actual' },
+  CLOSED: { bg: 'var(--neutral-bg)', fg: 'var(--neutral-fg)', dot: 'var(--neutral-dot)', label: 'Cerrada' },
 }
 
 export function StatusBadge({ status }: { status: string }) {
@@ -35,11 +36,12 @@ export function StatusBadge({ status }: { status: string }) {
 }
 
 // ============ PRIORITY BADGE ============
-const PRIORITY_CONFIGS: Record<string, { bg: string; fg: string; label: string }> = {
-  LOW: { bg: 'var(--neutral-bg)', fg: 'var(--neutral-fg)', label: 'Low' },
-  NORMAL: { bg: 'var(--neutral-bg)', fg: 'var(--neutral-fg)', label: 'Normal' },
-  HIGH: { bg: 'var(--warning-bg)', fg: 'var(--warning-fg)', label: 'High' },
-  CRITICAL: { bg: 'var(--danger-bg)', fg: 'var(--danger-fg)', label: 'Critical' },
+const PRIORITY_CONFIGS: Record<string, { bg: string; fg: string; dot: string; label: string }> = {
+  LOW: { bg: 'var(--info-bg)', fg: 'var(--info-fg)', dot: 'var(--info-dot)', label: 'Baja' },
+  NORMAL: { bg: 'var(--neutral-bg)', fg: 'var(--neutral-fg)', dot: 'var(--neutral-dot)', label: 'Normal' },
+  MEDIUM: { bg: 'var(--warning-bg)', fg: 'var(--warning-fg)', dot: 'var(--warning-dot)', label: 'Media' },
+  HIGH: { bg: 'var(--danger-bg)', fg: 'var(--danger-fg)', dot: 'var(--danger-dot)', label: 'Alta' },
+  CRITICAL: { bg: 'var(--danger-bg)', fg: 'var(--danger-fg)', dot: 'var(--danger-dot)', label: 'Crítica' },
 }
 
 export function PriorityBadge({ priority }: { priority: string }) {
@@ -56,6 +58,27 @@ export function PriorityBadge({ priority }: { priority: string }) {
       }}
     >
       {config.label}
+    </span>
+  )
+}
+
+// ============ ALERT BADGE (nuevo - para columna de alertas) ============
+export function AlertBadge({ count, priority }: { count: number; priority: 'HIGH' | 'MEDIUM' | 'LOW' }) {
+  const config = PRIORITY_CONFIGS[priority] || PRIORITY_CONFIGS.NORMAL
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-md font-medium"
+      style={{
+        height: '24px',
+        padding: '0 10px',
+        background: config.bg,
+        color: config.fg,
+        fontSize: '12px',
+        fontWeight: 500,
+      }}
+    >
+      <span className="rounded-full" style={{ width: '6px', height: '6px', background: config.dot }} />
+      {count} {config.label.toLowerCase()}
     </span>
   )
 }
@@ -132,7 +155,7 @@ export function Card({ children, className = '', padding = true }: { children: R
   )
 }
 
-// ============ STAT (mini KPI horizontal) ============
+// ============ STAT ============
 export function Stat({ label, value, subtext }: { label: string; value: string | number; subtext?: string }) {
   return (
     <div>
@@ -160,7 +183,6 @@ export function Stat({ label, value, subtext }: { label: string; value: string |
   )
 }
 
-// ============ KPI CARD (legacy support) ============
 export function KPICard({ label, value, subtext }: { label: string; value: string | number; subtext?: string; accentColor?: string }) {
   return (
     <Card>
@@ -194,7 +216,6 @@ export function SkeletonRow() {
       <div className="skeleton" style={{ height: '14px', width: '80px' }} />
       <div className="skeleton" style={{ height: '14px', width: '60px' }} />
       <div className="skeleton" style={{ height: '14px', width: '60px' }} />
-      <div className="skeleton" style={{ height: '14px', width: '70px' }} />
     </div>
   )
 }
@@ -203,7 +224,31 @@ export function SkeletonCard() {
   return <div className="skeleton" style={{ height: '120px' }} />
 }
 
-// ============ TASK CARD (legacy) ============
+// ============ UTILS ============
+export function getCountryFlag(code: string): string {
+  if (!code || code.length !== 2) return '🏳️'
+  const codePoints = code.toUpperCase().split('').map((c) => 127397 + c.charCodeAt(0))
+  return String.fromCodePoint(...codePoints)
+}
+
+export function getCountryNameES(code: string): string {
+  const names: Record<string, string> = {
+    AR: 'Argentina', BR: 'Brasil', CL: 'Chile', UY: 'Uruguay', PY: 'Paraguay',
+    PE: 'Perú', CO: 'Colombia', VE: 'Venezuela', EC: 'Ecuador', BO: 'Bolivia',
+    MX: 'México', US: 'Estados Unidos', CA: 'Canadá',
+    CN: 'China', JP: 'Japón', KR: 'Corea del Sur', IN: 'India', VN: 'Vietnam',
+    TH: 'Tailandia', ID: 'Indonesia', PH: 'Filipinas', SG: 'Singapur', MY: 'Malasia',
+    DE: 'Alemania', FR: 'Francia', IT: 'Italia', ES: 'España', PT: 'Portugal',
+    NL: 'Países Bajos', BE: 'Bélgica', GB: 'Reino Unido', IE: 'Irlanda',
+    PL: 'Polonia', SE: 'Suecia', NO: 'Noruega', DK: 'Dinamarca', FI: 'Finlandia',
+    GR: 'Grecia', TR: 'Turquía', RU: 'Rusia', UA: 'Ucrania',
+    AU: 'Australia', NZ: 'Nueva Zelanda', ZA: 'Sudáfrica', EG: 'Egipto',
+    AE: 'Emiratos Árabes', SA: 'Arabia Saudita', IL: 'Israel',
+  }
+  return names[code?.toUpperCase()] || code
+}
+
+// ============ LEGACY (mantener para compatibilidad) ============
 export function TaskCard({ title, status, priority }: any) {
   return (
     <Card padding={false} className="p-4">
@@ -216,7 +261,6 @@ export function TaskCard({ title, status, priority }: any) {
   )
 }
 
-// ============ TIMELINE (legacy) ============
 export function Timeline({ events }: { events: any[] }) {
   return (
     <div>
@@ -230,7 +274,6 @@ export function Timeline({ events }: { events: any[] }) {
   )
 }
 
-// ============ JOURNEY STEP (legacy) ============
 export function JourneyStep({ steps }: { steps: any[] }) {
   return (
     <div className="space-y-3">

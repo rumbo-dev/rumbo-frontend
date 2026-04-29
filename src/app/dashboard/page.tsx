@@ -3,9 +3,10 @@
 import { useState, useEffect, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { Search, Plus, AlertCircle, Mail } from 'lucide-react'
-import { StatusBadge, Button, EmptyState, SkeletonRow } from '@/components/index'
+import { Search, Plus, Mail, Package, AlertTriangle, Clock, ChevronDown, Check } from 'lucide-react'
+import { StatusBadge, AlertBadge, Button, EmptyState, SkeletonRow, getCountryFlag, getCountryNameES } from '@/components/index'
 import EmailIntakeModal from '@/components/EmailIntakeModal'
+import Sidebar from '@/components/Sidebar'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
@@ -26,7 +27,6 @@ interface Operation {
   destinationPort: string
   destinationCountry: string
   weightKg: number
-  costEstimate: number
   status: string
   priority: string
   eta?: string
@@ -36,31 +36,41 @@ interface Operation {
   tasks?: Task[]
 }
 
+type StatusFilter = 'ACTIVE' | 'IN_TRANSIT' | 'PENDING' | 'COMPLETED'
+type AlertFilter = 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE'
+
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: 'ACTIVE', label: 'Activa' },
+  { value: 'IN_TRANSIT', label: 'En tránsito' },
+  { value: 'PENDING', label: 'Pendiente' },
+  { value: 'COMPLETED', label: 'Completada' },
+]
+
+const ALERT_OPTIONS: { value: AlertFilter; label: string }[] = [
+  { value: 'HIGH', label: 'Alta' },
+  { value: 'MEDIUM', label: 'Media' },
+  { value: 'LOW', label: 'Baja' },
+  { value: 'NONE', label: 'Sin alertas' },
+]
+
 export default function Dashboard() {
   const router = useRouter()
   const [operations, setOperations] = useState<Operation[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('ALL')
+  const [statusFilters, setStatusFilters] = useState<StatusFilter[]>([])
+  const [alertFilters, setAlertFilters] = useState<AlertFilter[]>([])
+  const [heroFilter, setHeroFilter] = useState<'all_active' | 'critical' | 'eta_week' | null>(null)
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false)
+  const [showAlertDropdown, setShowAlertDropdown] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showEmailIntake, setShowEmailIntake] = useState(false)
 
   const [formData, setFormData] = useState({
-    operationCode: '',
-    containerNumber: '',
-    originPort: '',
-    originCountry: '',
-    destinationPort: '',
-    destinationCountry: '',
-    weightKg: '',
-    cbm: '',
-    incoterm: 'FOB',
-    mode: 'FCL',
-    clientName: '',
-    clientEmail: '',
-    shippingLine: '',
-    costEstimate: '',
-    priority: 'NORMAL',
+    operationCode: '', containerNumber: '', originPort: '', originCountry: '',
+    destinationPort: '', destinationCountry: '', weightKg: '', cbm: '',
+    incoterm: 'FOB', mode: 'FCL', clientName: '', clientEmail: '',
+    shippingLine: '', costEstimate: '', priority: 'NORMAL',
   })
 
   useEffect(() => {
@@ -108,32 +118,63 @@ export default function Dashboard() {
     }
   }
 
-  const countAlerts = (op: Operation): number => {
-    if (!op.tasks) return 0
-    return op.tasks.filter((t) => t.createdByAi && (t.priority === 'HIGH' || t.priority === 'CRITICAL') && t.status === 'PENDING').length
+  // Calculate alerts for an operation
+  const getAlerts = (op: Operation): { count: number; priority: 'HIGH' | 'MEDIUM' | 'LOW' | null } => {
+    if (!op.tasks) return { count: 0, priority: null }
+    const aiPending = op.tasks.filter((t) => t.createdByAi && t.status === 'PENDING')
+    if (aiPending.length === 0) return { count: 0, priority: null }
+    
+    const high = aiPending.filter((t) => t.priority === 'HIGH' || t.priority === 'CRITICAL').length
+    const medium = aiPending.filter((t) => t.priority === 'MEDIUM' || t.priority === 'NORMAL').length
+    const low = aiPending.filter((t) => t.priority === 'LOW').length
+    
+    if (high > 0) return { count: aiPending.length, priority: 'HIGH' }
+    if (medium > 0) return { count: aiPending.length, priority: 'MEDIUM' }
+    if (low > 0) return { count: aiPending.length, priority: 'LOW' }
+    return { count: 0, priority: null }
   }
 
-  const getETA = (eta?: string): { primary: string; secondary?: string } => {
+  const getETA = (eta?: string): { primary: string; secondary?: string; daysAway?: number } => {
     if (!eta) return { primary: '—' }
     const date = new Date(eta)
     const now = new Date()
     const diffDays = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-    const formatted = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    if (diffDays < 0) return { primary: formatted, secondary: `${Math.abs(diffDays)}d ago` }
-    if (diffDays === 0) return { primary: formatted, secondary: 'today' }
-    return { primary: formatted, secondary: `in ${diffDays}d` }
+    const formatted = date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+    if (diffDays < 0) return { primary: formatted, secondary: `hace ${Math.abs(diffDays)} días`, daysAway: diffDays }
+    if (diffDays === 0) return { primary: formatted, secondary: 'hoy', daysAway: 0 }
+    return { primary: formatted, secondary: `en ${diffDays} días`, daysAway: diffDays }
   }
 
-  const getCountryCode = (country: string): string => {
-    const codes: Record<string, string> = {
-      China: 'CN', Argentina: 'AR', Netherlands: 'NL', Germany: 'DE',
-      'United States': 'US', Brazil: 'BR', Spain: 'ES', France: 'FR',
-    }
-    return codes[country] || country.substring(0, 2).toUpperCase()
-  }
+  // Hero stats calculations
+  const totalActive = operations.filter((op) => op.status !== 'COMPLETED' && op.status !== 'CLOSED').length
+  const criticalCount = operations.filter((op) => getAlerts(op).priority === 'HIGH').length
+  const etaThisWeek = operations.filter((op) => {
+    const eta = getETA(op.eta)
+    return eta.daysAway !== undefined && eta.daysAway >= 0 && eta.daysAway <= 7
+  }).length
 
+  // Apply all filters
   const filteredOps = operations.filter((op) => {
-    if (statusFilter !== 'ALL' && op.status !== statusFilter) return false
+    // Hero filter
+    if (heroFilter === 'all_active' && (op.status === 'COMPLETED' || op.status === 'CLOSED')) return false
+    if (heroFilter === 'critical' && getAlerts(op).priority !== 'HIGH') return false
+    if (heroFilter === 'eta_week') {
+      const eta = getETA(op.eta)
+      if (eta.daysAway === undefined || eta.daysAway < 0 || eta.daysAway > 7) return false
+    }
+
+    // Status filter
+    if (statusFilters.length > 0 && !statusFilters.includes(op.status as StatusFilter)) return false
+
+    // Alert filter
+    if (alertFilters.length > 0) {
+      const alerts = getAlerts(op)
+      const matchesNone = alertFilters.includes('NONE') && alerts.count === 0
+      const matchesPriority = alerts.priority && alertFilters.includes(alerts.priority as AlertFilter)
+      if (!matchesNone && !matchesPriority) return false
+    }
+
+    // Search
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       return (
@@ -146,91 +187,236 @@ export default function Dashboard() {
     return true
   })
 
+  const toggleStatusFilter = (value: StatusFilter) => {
+    setStatusFilters((prev) => prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value])
+  }
+
+  const toggleAlertFilter = (value: AlertFilter) => {
+    setAlertFilters((prev) => prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value])
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--surface-app)' }}>
-      <nav style={{ height: '56px', background: 'var(--surface-card)', borderBottom: '1px solid var(--border-default)', padding: '0 32px', display: 'flex', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '40px' }}>
-          <img src='/logo-icon.png' alt='Rumbo' style={{ height: '24px', width: 'auto' }} />
-          <span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>Rumbo</span>
-        </div>
-        <div style={{ display: 'flex', gap: '4px', height: '56px', alignItems: 'center' }}>
-          <NavLink active>Operations</NavLink>
-          <NavLink>Analytics</NavLink>
-          <NavLink>Settings</NavLink>
-        </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--rumbo-navy)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600 }}>D</div>
-        </div>
-      </nav>
+      <Sidebar onNewOperation={() => setShowModal(true)} />
 
-      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '32px' }}>
+      <div style={{ marginLeft: '240px', padding: '32px 40px', maxWidth: '1400px' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}>
           <div>
-            <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, lineHeight: '32px' }}>Operations</h1>
-            <p style={{ fontSize: '14px', color: 'var(--text-tertiary)', margin: '4px 0 0 0' }}>Manage and track your shipments in real-time</p>
+            <h1 style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, lineHeight: '32px', letterSpacing: '-0.01em' }}>
+              Operaciones
+            </h1>
+            <p style={{ fontSize: '14px', color: 'var(--text-tertiary)', margin: '4px 0 0 0' }}>
+              Centro de control de tus envíos en tiempo real
+            </p>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <Button variant="secondary" onClick={() => setShowEmailIntake(true)}>
-              <Mail size={16} />
-              Process email
+              <Mail size={15} />
+              Procesar email
             </Button>
             <Button onClick={() => setShowModal(true)}>
-              <Plus size={16} strokeWidth={2.2} />
-              New operation
+              <Plus size={15} strokeWidth={2.2} />
+              Nueva operación
             </Button>
           </div>
         </div>
 
+        {/* Hero stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '28px' }}>
+          <HeroBox
+            icon={<Package size={20} strokeWidth={1.8} />}
+            iconColor="var(--rumbo-navy)"
+            iconBg="var(--rumbo-navy-soft)"
+            value={totalActive}
+            label="Operaciones activas"
+            sublabel="En curso ahora"
+            active={heroFilter === 'all_active'}
+            onClick={() => setHeroFilter(heroFilter === 'all_active' ? null : 'all_active')}
+          />
+          <HeroBox
+            icon={<AlertTriangle size={20} strokeWidth={1.8} />}
+            iconColor="var(--danger-fg)"
+            iconBg="var(--danger-bg)"
+            value={criticalCount}
+            label="Críticas"
+            sublabel="Atender ahora"
+            active={heroFilter === 'critical'}
+            onClick={() => setHeroFilter(heroFilter === 'critical' ? null : 'critical')}
+            valueColor="var(--danger-fg)"
+          />
+          <HeroBox
+            icon={<Clock size={20} strokeWidth={1.8} />}
+            iconColor="var(--rumbo-coral)"
+            iconBg="var(--rumbo-coral-soft)"
+            value={etaThisWeek}
+            label="ETA esta semana"
+            sublabel="Llegan en ≤7 días"
+            active={heroFilter === 'eta_week'}
+            onClick={() => setHeroFilter(heroFilter === 'eta_week' ? null : 'eta_week')}
+            valueColor="var(--rumbo-coral)"
+          />
+        </div>
+
+        {/* Filters */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-          <FilterChip active={statusFilter === 'ALL'} onClick={() => setStatusFilter('ALL')}>All</FilterChip>
-          <FilterChip active={statusFilter === 'ACTIVE'} onClick={() => setStatusFilter('ACTIVE')}>Active</FilterChip>
-          <FilterChip active={statusFilter === 'IN_TRANSIT'} onClick={() => setStatusFilter('IN_TRANSIT')}>In transit</FilterChip>
-          <FilterChip active={statusFilter === 'PENDING'} onClick={() => setStatusFilter('PENDING')}>Pending</FilterChip>
-          <FilterChip active={statusFilter === 'COMPLETED'} onClick={() => setStatusFilter('COMPLETED')}>Completed</FilterChip>
+          {/* Status dropdown */}
+          <div style={{ position: 'relative' }}>
+            <FilterButton
+              label="Estado"
+              count={statusFilters.length}
+              active={showStatusDropdown}
+              onClick={() => { setShowStatusDropdown(!showStatusDropdown); setShowAlertDropdown(false); }}
+            />
+            {showStatusDropdown && (
+              <FilterDropdown
+                options={STATUS_OPTIONS}
+                selected={statusFilters}
+                onToggle={(v) => toggleStatusFilter(v as StatusFilter)}
+                onClear={() => setStatusFilters([])}
+                onClose={() => setShowStatusDropdown(false)}
+              />
+            )}
+          </div>
+
+          {/* Alert dropdown */}
+          <div style={{ position: 'relative' }}>
+            <FilterButton
+              label="Alertas"
+              count={alertFilters.length}
+              active={showAlertDropdown}
+              onClick={() => { setShowAlertDropdown(!showAlertDropdown); setShowStatusDropdown(false); }}
+            />
+            {showAlertDropdown && (
+              <FilterDropdown
+                options={ALERT_OPTIONS}
+                selected={alertFilters}
+                onToggle={(v) => toggleAlertFilter(v as AlertFilter)}
+                onClear={() => setAlertFilters([])}
+                onClose={() => setShowAlertDropdown(false)}
+              />
+            )}
+          </div>
+
           <div style={{ flex: 1 }} />
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '280px' }}>
+
+          {/* Search */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '300px' }}>
             <Search size={14} style={{ position: 'absolute', left: '12px', color: 'var(--text-tertiary)' }} />
-            <input type="text" placeholder="Search operations..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', height: '32px', padding: '0 12px 0 34px', borderRadius: '6px', border: '1px solid var(--border-default)', background: 'var(--surface-card)', fontSize: '13px', color: 'var(--text-primary)' }} />
+            <input
+              type="text"
+              placeholder="Buscar operaciones..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                height: '34px',
+                padding: '0 12px 0 34px',
+                borderRadius: '7px',
+                border: '1px solid var(--border-default)',
+                background: 'var(--surface-card)',
+                fontSize: '13px',
+                color: 'var(--text-primary)',
+              }}
+            />
           </div>
         </div>
 
-        <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: '8px', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr 1fr 0.8fr 0.8fr 1fr 1fr 0.7fr', padding: '0 20px', height: '40px', alignItems: 'center', borderBottom: '1px solid var(--border-default)' }}>
-            <HeaderCell>Operation</HeaderCell>
-            <HeaderCell>Status</HeaderCell>
+        {/* Active filter chips */}
+        {(heroFilter || statusFilters.length > 0 || alertFilters.length > 0) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Filtros:</span>
+            {heroFilter === 'all_active' && <ActiveFilterChip label="Solo activas" onRemove={() => setHeroFilter(null)} />}
+            {heroFilter === 'critical' && <ActiveFilterChip label="Críticas" onRemove={() => setHeroFilter(null)} />}
+            {heroFilter === 'eta_week' && <ActiveFilterChip label="ETA esta semana" onRemove={() => setHeroFilter(null)} />}
+            {statusFilters.map((s) => (
+              <ActiveFilterChip key={s} label={STATUS_OPTIONS.find((o) => o.value === s)?.label || s} onRemove={() => toggleStatusFilter(s)} />
+            ))}
+            {alertFilters.map((a) => (
+              <ActiveFilterChip key={a} label={`Alerta ${ALERT_OPTIONS.find((o) => o.value === a)?.label || a}`} onRemove={() => toggleAlertFilter(a)} />
+            ))}
+            <button
+              onClick={() => { setHeroFilter(null); setStatusFilters([]); setAlertFilters([]); }}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Limpiar todo
+            </button>
+          </div>
+        )}
+
+        {/* Table */}
+        <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: '10px', overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 1.1fr 1fr 1.2fr 1fr 1.1fr', padding: '0 20px', height: '42px', alignItems: 'center', borderBottom: '1px solid var(--border-default)' }}>
+            <HeaderCell>Operación</HeaderCell>
+            <HeaderCell>Estado</HeaderCell>
             <HeaderCell>Carrier</HeaderCell>
-            <HeaderCell>Origin</HeaderCell>
-            <HeaderCell>Destination</HeaderCell>
+            <HeaderCell>Origen</HeaderCell>
             <HeaderCell>ETA</HeaderCell>
-            <HeaderCell>Type / Mode</HeaderCell>
-            <HeaderCell align="right">Alerts</HeaderCell>
+            <HeaderCell align="right">Alertas</HeaderCell>
           </div>
 
           {loading ? (
             <><SkeletonRow /><SkeletonRow /><SkeletonRow /><SkeletonRow /></>
           ) : filteredOps.length === 0 ? (
-            <EmptyState title="No operations found" description={searchQuery ? 'Try adjusting your search or filters' : 'Create your first operation to get started'} action={!searchQuery && (<Button onClick={() => setShowModal(true)}><Plus size={16} />New operation</Button>)} />
+            <EmptyState
+              title={operations.length === 0 ? "No hay operaciones aún" : "Sin resultados"}
+              description={operations.length === 0 ? "Comenzá creando una operación o procesando un email" : "Probá ajustar los filtros"}
+              action={operations.length === 0 ? (
+                <Button onClick={() => setShowModal(true)}><Plus size={15} />Nueva operación</Button>
+              ) : (
+                <Button variant="secondary" onClick={() => { setHeroFilter(null); setStatusFilters([]); setAlertFilters([]); setSearchQuery(''); }}>Limpiar filtros</Button>
+              )}
+            />
           ) : (
             filteredOps.map((op, idx) => {
               const eta = getETA(op.eta)
-              const alerts = countAlerts(op)
+              const alerts = getAlerts(op)
+              const hasManyAlerts = alerts.count >= 5
               return (
-                <div key={op.id} onClick={() => router.push(`/operations/${op.id}`)} style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr 1fr 0.8fr 0.8fr 1fr 1fr 0.7fr', padding: '0 20px', minHeight: '64px', alignItems: 'center', borderBottom: idx < filteredOps.length - 1 ? '1px solid var(--border-subtle)' : 'none', cursor: 'pointer', transition: 'background 80ms ease' }} onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                <div
+                  key={op.id}
+                  onClick={() => router.push(`/operations/${op.id}`)}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '2.4fr 1.1fr 1fr 1.2fr 1fr 1.1fr',
+                    padding: '0 20px',
+                    minHeight: '64px',
+                    alignItems: 'center',
+                    borderBottom: idx < filteredOps.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                    cursor: 'pointer',
+                    transition: 'background 100ms ease',
+                    position: 'relative',
+                    borderLeft: hasManyAlerts ? '3px solid var(--rumbo-coral)' : '3px solid transparent',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--surface-hover)'
+                    if (!hasManyAlerts) e.currentTarget.style.borderLeft = '3px solid var(--rumbo-coral)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent'
+                    if (!hasManyAlerts) e.currentTarget.style.borderLeft = '3px solid transparent'
+                  }}
+                >
                   <div>
                     <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>{op.operationCode}</div>
                     <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{op.clientName}</div>
                   </div>
                   <div><StatusBadge status={op.status} /></div>
                   <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{op.shippingLine}</div>
-                  <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{getCountryCode(op.originCountry)}</div>
-                  <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{getCountryCode(op.destinationCountry)}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px', lineHeight: 1 }}>{getCountryFlag(op.originCountry)}</span>
+                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{getCountryNameES(op.originCountry)}</span>
+                  </div>
                   <div>
                     <div style={{ fontSize: '14px', color: eta.primary === '—' ? 'var(--text-quaternary)' : 'var(--text-primary)' }}>{eta.primary}</div>
                     {eta.secondary && (<div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{eta.secondary}</div>)}
                   </div>
-                  <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{op.incoterm} <span style={{ color: 'var(--text-quaternary)' }}>/</span> {op.mode || 'FCL'}</div>
                   <div style={{ textAlign: 'right' }}>
-                    {alerts > 0 ? (<span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: 'var(--warning-fg)', fontWeight: 500 }}><AlertCircle size={13} />{alerts}</span>) : (<span style={{ color: 'var(--text-quaternary)', fontSize: '14px' }}>—</span>)}
+                    {alerts.count > 0 && alerts.priority ? (
+                      <AlertBadge count={alerts.count} priority={alerts.priority} />
+                    ) : (
+                      <span style={{ color: 'var(--text-quaternary)', fontSize: '14px' }}>—</span>
+                    )}
                   </div>
                 </div>
               )
@@ -240,7 +426,7 @@ export default function Dashboard() {
 
         {!loading && filteredOps.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', fontSize: '13px', color: 'var(--text-tertiary)' }}>
-            <span>Showing {filteredOps.length} of {operations.length} operations</span>
+            <span>Mostrando {filteredOps.length} de {operations.length} operaciones</span>
           </div>
         )}
       </div>
@@ -249,29 +435,29 @@ export default function Dashboard() {
 
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '32px' }} onClick={() => setShowModal(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface-card)', borderRadius: '8px', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflow: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface-card)', borderRadius: '10px', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflow: 'auto' }}>
             <div style={{ padding: '24px', borderBottom: '1px solid var(--border-default)' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>New operation</h2>
-              <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', margin: '4px 0 0 0' }}>Create a new shipment to track</p>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Nueva operación</h2>
+              <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', margin: '4px 0 0 0' }}>Creá un nuevo envío para hacer seguimiento</p>
             </div>
             <form onSubmit={handleCreateOperation} style={{ padding: '24px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <FormField label="Operation code" value={formData.operationCode} onChange={(v: string) => setFormData({ ...formData, operationCode: v })} required />
-                <FormField label="Container number" value={formData.containerNumber} onChange={(v: string) => setFormData({ ...formData, containerNumber: v })} required />
-                <FormField label="Client" value={formData.clientName} onChange={(v: string) => setFormData({ ...formData, clientName: v })} required />
+                <FormField label="Código de operación" value={formData.operationCode} onChange={(v: string) => setFormData({ ...formData, operationCode: v })} required />
+                <FormField label="Número de container" value={formData.containerNumber} onChange={(v: string) => setFormData({ ...formData, containerNumber: v })} required />
+                <FormField label="Cliente" value={formData.clientName} onChange={(v: string) => setFormData({ ...formData, clientName: v })} required />
                 <FormField label="Carrier" value={formData.shippingLine} onChange={(v: string) => setFormData({ ...formData, shippingLine: v })} required />
-                <FormField label="Origin port" value={formData.originPort} onChange={(v: string) => setFormData({ ...formData, originPort: v })} required />
-                <FormField label="Origin country" value={formData.originCountry} onChange={(v: string) => setFormData({ ...formData, originCountry: v })} required />
-                <FormField label="Destination port" value={formData.destinationPort} onChange={(v: string) => setFormData({ ...formData, destinationPort: v })} required />
-                <FormField label="Destination country" value={formData.destinationCountry} onChange={(v: string) => setFormData({ ...formData, destinationCountry: v })} required />
-                <FormField label="Weight (kg)" value={formData.weightKg} onChange={(v: string) => setFormData({ ...formData, weightKg: v })} type="number" required />
-                <FormField label="Cost estimate (USD)" value={formData.costEstimate} onChange={(v: string) => setFormData({ ...formData, costEstimate: v })} type="number" required />
+                <FormField label="Puerto de origen" value={formData.originPort} onChange={(v: string) => setFormData({ ...formData, originPort: v })} required />
+                <FormField label="País de origen (ISO)" value={formData.originCountry} onChange={(v: string) => setFormData({ ...formData, originCountry: v })} required />
+                <FormField label="Puerto de destino" value={formData.destinationPort} onChange={(v: string) => setFormData({ ...formData, destinationPort: v })} required />
+                <FormField label="País de destino (ISO)" value={formData.destinationCountry} onChange={(v: string) => setFormData({ ...formData, destinationCountry: v })} required />
+                <FormField label="Peso (kg)" value={formData.weightKg} onChange={(v: string) => setFormData({ ...formData, weightKg: v })} type="number" required />
+                <FormField label="Costo estimado (USD)" value={formData.costEstimate} onChange={(v: string) => setFormData({ ...formData, costEstimate: v })} type="number" required />
                 <FormSelect label="Incoterm" value={formData.incoterm} onChange={(v: string) => setFormData({ ...formData, incoterm: v })} options={['FOB', 'CIF', 'EXW', 'DDP']} />
-                <FormSelect label="Mode" value={formData.mode} onChange={(v: string) => setFormData({ ...formData, mode: v })} options={['FCL', 'LCL', 'AIR', 'LAND']} />
+                <FormSelect label="Modo" value={formData.mode} onChange={(v: string) => setFormData({ ...formData, mode: v })} options={['FCL', 'LCL', 'AIR', 'LAND']} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '24px' }}>
-                <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
-                <Button type="submit">Create operation</Button>
+                <Button variant="secondary" onClick={() => setShowModal(false)}>Cancelar</Button>
+                <Button type="submit">Crear operación</Button>
               </div>
             </form>
           </div>
@@ -281,16 +467,224 @@ export default function Dashboard() {
   )
 }
 
-function NavLink({ children, active }: { children: ReactNode; active?: boolean }) {
-  return (<div style={{ height: '56px', padding: '0 12px', display: 'inline-flex', alignItems: 'center', fontSize: '14px', fontWeight: 500, color: active ? 'var(--text-primary)' : 'var(--text-tertiary)', borderBottom: active ? '2px solid var(--rumbo-coral)' : '2px solid transparent', cursor: 'pointer' }}>{children}</div>)
+function HeroBox({
+  icon, iconColor, iconBg, value, label, sublabel, active, onClick, valueColor,
+}: {
+  icon: ReactNode
+  iconColor: string
+  iconBg: string
+  value: number
+  label: string
+  sublabel: string
+  active?: boolean
+  onClick: () => void
+  valueColor?: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: 'var(--surface-card)',
+        border: active ? '1.5px solid var(--rumbo-navy)' : '1px solid var(--border-default)',
+        borderRadius: '10px',
+        padding: '18px 20px',
+        cursor: 'pointer',
+        textAlign: 'left',
+        transition: 'all 150ms ease',
+        position: 'relative',
+        boxShadow: active ? '0 0 0 3px color-mix(in srgb, var(--rumbo-navy) 8%, transparent)' : 'none',
+      }}
+      onMouseEnter={(e) => {
+        if (!active) {
+          e.currentTarget.style.borderColor = 'var(--border-strong)'
+          e.currentTarget.style.transform = 'translateY(-1px)'
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!active) {
+          e.currentTarget.style.borderColor = 'var(--border-default)'
+          e.currentTarget.style.transform = 'translateY(0)'
+        }
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        <div
+          style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '8px',
+            background: iconBg,
+            color: iconColor,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {icon}
+        </div>
+        {active && (
+          <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--rumbo-navy)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Filtrado
+          </div>
+        )}
+      </div>
+      <div className="tabular-nums" style={{ fontSize: '28px', fontWeight: 600, color: valueColor || 'var(--text-primary)', lineHeight: '32px', letterSpacing: '-0.02em' }}>
+        {value}
+      </div>
+      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', marginTop: '4px' }}>{label}</div>
+      <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{sublabel}</div>
+    </button>
+  )
+}
+
+function FilterButton({ label, count, active, onClick }: { label: string; count: number; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        height: '34px',
+        padding: '0 12px',
+        borderRadius: '7px',
+        border: '1px solid ' + (count > 0 ? 'var(--rumbo-navy)' : 'var(--border-default)'),
+        background: count > 0 ? 'var(--rumbo-navy-soft)' : 'var(--surface-card)',
+        color: count > 0 ? 'var(--rumbo-navy)' : 'var(--text-secondary)',
+        fontSize: '13px',
+        fontWeight: 500,
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        transition: 'all 120ms ease',
+      }}
+    >
+      {label}
+      {count > 0 && (
+        <span
+          style={{
+            background: 'var(--rumbo-navy)',
+            color: 'white',
+            borderRadius: '10px',
+            padding: '0 6px',
+            fontSize: '11px',
+            fontWeight: 600,
+            minWidth: '18px',
+            height: '18px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {count}
+        </span>
+      )}
+      <ChevronDown size={13} style={{ marginLeft: count > 0 ? '0' : '2px', transition: 'transform 150ms', transform: active ? 'rotate(180deg)' : 'rotate(0)' }} />
+    </button>
+  )
+}
+
+function FilterDropdown({ options, selected, onToggle, onClear, onClose }: { options: { value: string; label: string }[]; selected: string[]; onToggle: (v: string) => void; onClear: () => void; onClose: () => void }) {
+  return (
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 20 }} onClick={onClose} />
+      <div
+        style={{
+          position: 'absolute',
+          top: 'calc(100% + 4px)',
+          left: 0,
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-default)',
+          borderRadius: '8px',
+          boxShadow: 'var(--shadow-popover)',
+          minWidth: '200px',
+          zIndex: 30,
+          padding: '6px',
+        }}
+      >
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => onToggle(opt.value)}
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: 'transparent',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '13px',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'background 80ms',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            <div
+              style={{
+                width: '16px',
+                height: '16px',
+                borderRadius: '4px',
+                border: '1.5px solid ' + (selected.includes(opt.value) ? 'var(--rumbo-navy)' : 'var(--border-strong)'),
+                background: selected.includes(opt.value) ? 'var(--rumbo-navy)' : 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              {selected.includes(opt.value) && <Check size={11} style={{ color: 'white' }} strokeWidth={3} />}
+            </div>
+            {opt.label}
+          </button>
+        ))}
+        {selected.length > 0 && (
+          <>
+            <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '4px 0' }} />
+            <button
+              onClick={onClear}
+              style={{ width: '100%', padding: '8px 10px', background: 'transparent', border: 'none', borderRadius: '6px', fontSize: '12px', color: 'var(--text-tertiary)', cursor: 'pointer', textAlign: 'left' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              Limpiar selección
+            </button>
+          </>
+        )}
+      </div>
+    </>
+  )
+}
+
+function ActiveFilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <button
+      onClick={onRemove}
+      style={{
+        height: '24px',
+        padding: '0 8px 0 10px',
+        borderRadius: '6px',
+        background: 'var(--rumbo-navy-soft)',
+        color: 'var(--rumbo-navy)',
+        fontSize: '12px',
+        fontWeight: 500,
+        border: 'none',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        cursor: 'pointer',
+      }}
+    >
+      {label}
+      <span style={{ fontSize: '14px', lineHeight: 1, opacity: 0.7 }}>×</span>
+    </button>
+  )
 }
 
 function HeaderCell({ children, align = 'left' }: { children: ReactNode; align?: 'left' | 'right' }) {
   return (<div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: align }}>{children}</div>)
-}
-
-function FilterChip({ children, active, onClick }: { children: ReactNode; active?: boolean; onClick?: () => void }) {
-  return (<button onClick={onClick} style={{ height: '32px', padding: '0 12px', borderRadius: '6px', border: '1px solid ' + (active ? 'var(--rumbo-navy)' : 'var(--border-default)'), background: active ? 'var(--rumbo-navy)' : 'var(--surface-card)', color: active ? 'white' : 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', transition: 'all 120ms ease' }}>{children}</button>)
 }
 
 function FormField({ label, value, onChange, type = 'text', required }: { label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean }) {
