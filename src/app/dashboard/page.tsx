@@ -4,7 +4,7 @@ import { useState, useEffect, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import { Search, Plus, Mail, Package, AlertTriangle, Clock, ChevronDown, Check } from 'lucide-react'
-import { StatusBadge, AlertBadge, Button, EmptyState, SkeletonRow, getCountryFlag, getCountryNameES } from '@/components/index'
+import { StatusBadge, Button, EmptyState, SkeletonRow, getCountryFlag, getCountryNameES } from '@/components/index'
 import EmailIntakeModal from '@/components/EmailIntakeModal'
 import Sidebar from '@/components/Sidebar'
 
@@ -12,6 +12,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 interface Task {
   id: string
+  title: string
   status: string
   priority: string
   createdByAi: boolean
@@ -118,19 +119,23 @@ export default function Dashboard() {
     }
   }
 
-  // Calculate alerts for an operation
-  const getAlerts = (op: Operation): { count: number; priority: 'HIGH' | 'MEDIUM' | 'LOW' | null } => {
+  const getAlertInfo = (op: Operation): { count: number; priority: 'HIGH' | 'MEDIUM' | 'LOW' | null; topTask?: string } => {
     if (!op.tasks) return { count: 0, priority: null }
     const aiPending = op.tasks.filter((t) => t.createdByAi && t.status === 'PENDING')
     if (aiPending.length === 0) return { count: 0, priority: null }
+    
+    // Sort by priority: HIGH/CRITICAL > MEDIUM/NORMAL > LOW
+    const priorityOrder: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, NORMAL: 3, LOW: 4 }
+    const sorted = [...aiPending].sort((a, b) => (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99))
+    const topTask = sorted[0]?.title || ''
     
     const high = aiPending.filter((t) => t.priority === 'HIGH' || t.priority === 'CRITICAL').length
     const medium = aiPending.filter((t) => t.priority === 'MEDIUM' || t.priority === 'NORMAL').length
     const low = aiPending.filter((t) => t.priority === 'LOW').length
     
-    if (high > 0) return { count: aiPending.length, priority: 'HIGH' }
-    if (medium > 0) return { count: aiPending.length, priority: 'MEDIUM' }
-    if (low > 0) return { count: aiPending.length, priority: 'LOW' }
+    if (high > 0) return { count: aiPending.length, priority: 'HIGH', topTask }
+    if (medium > 0) return { count: aiPending.length, priority: 'MEDIUM', topTask }
+    if (low > 0) return { count: aiPending.length, priority: 'LOW', topTask }
     return { count: 0, priority: null }
   }
 
@@ -145,36 +150,27 @@ export default function Dashboard() {
     return { primary: formatted, secondary: `en ${diffDays} días`, daysAway: diffDays }
   }
 
-  // Hero stats calculations
   const totalActive = operations.filter((op) => op.status !== 'COMPLETED' && op.status !== 'CLOSED').length
-  const criticalCount = operations.filter((op) => getAlerts(op).priority === 'HIGH').length
+  const criticalCount = operations.filter((op) => getAlertInfo(op).priority === 'HIGH').length
   const etaThisWeek = operations.filter((op) => {
     const eta = getETA(op.eta)
     return eta.daysAway !== undefined && eta.daysAway >= 0 && eta.daysAway <= 7
   }).length
 
-  // Apply all filters
   const filteredOps = operations.filter((op) => {
-    // Hero filter
     if (heroFilter === 'all_active' && (op.status === 'COMPLETED' || op.status === 'CLOSED')) return false
-    if (heroFilter === 'critical' && getAlerts(op).priority !== 'HIGH') return false
+    if (heroFilter === 'critical' && getAlertInfo(op).priority !== 'HIGH') return false
     if (heroFilter === 'eta_week') {
       const eta = getETA(op.eta)
       if (eta.daysAway === undefined || eta.daysAway < 0 || eta.daysAway > 7) return false
     }
-
-    // Status filter
     if (statusFilters.length > 0 && !statusFilters.includes(op.status as StatusFilter)) return false
-
-    // Alert filter
     if (alertFilters.length > 0) {
-      const alerts = getAlerts(op)
+      const alerts = getAlertInfo(op)
       const matchesNone = alertFilters.includes('NONE') && alerts.count === 0
       const matchesPriority = alerts.priority && alertFilters.includes(alerts.priority as AlertFilter)
       if (!matchesNone && !matchesPriority) return false
     }
-
-    // Search
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       return (
@@ -199,236 +195,231 @@ export default function Dashboard() {
     <div style={{ minHeight: '100vh', background: 'var(--surface-app)' }}>
       <Sidebar onNewOperation={() => setShowModal(true)} />
 
-      <div style={{ marginLeft: '240px', padding: '32px 40px', maxWidth: '1400px' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}>
-          <div>
-            <h1 style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, lineHeight: '32px', letterSpacing: '-0.01em' }}>
-              Operaciones
-            </h1>
-            <p style={{ fontSize: '14px', color: 'var(--text-tertiary)', margin: '4px 0 0 0' }}>
-              Centro de control de tus envíos en tiempo real
-            </p>
+      <div style={{ marginLeft: '240px' }}>
+        <div style={{ maxWidth: '1680px', margin: '0 auto', padding: '32px 40px' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}>
+            <div>
+              <h1 style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, lineHeight: '32px', letterSpacing: '-0.01em' }}>
+                Operaciones
+              </h1>
+              <p style={{ fontSize: '14px', color: 'var(--text-tertiary)', margin: '4px 0 0 0' }}>
+                Centro de control de tus envíos en tiempo real
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Button variant="secondary" onClick={() => setShowEmailIntake(true)}>
+                <Mail size={15} />
+                Procesar email
+              </Button>
+              <Button onClick={() => setShowModal(true)}>
+                <Plus size={15} strokeWidth={2.2} />
+                Nueva operación
+              </Button>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <Button variant="secondary" onClick={() => setShowEmailIntake(true)}>
-              <Mail size={15} />
-              Procesar email
-            </Button>
-            <Button onClick={() => setShowModal(true)}>
-              <Plus size={15} strokeWidth={2.2} />
-              Nueva operación
-            </Button>
-          </div>
-        </div>
 
-        {/* Hero stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '28px' }}>
-          <HeroBox
-            icon={<Package size={20} strokeWidth={1.8} />}
-            iconColor="var(--rumbo-navy)"
-            iconBg="var(--rumbo-navy-soft)"
-            value={totalActive}
-            label="Operaciones activas"
-            sublabel="En curso ahora"
-            active={heroFilter === 'all_active'}
-            onClick={() => setHeroFilter(heroFilter === 'all_active' ? null : 'all_active')}
-          />
-          <HeroBox
-            icon={<AlertTriangle size={20} strokeWidth={1.8} />}
-            iconColor="var(--danger-fg)"
-            iconBg="var(--danger-bg)"
-            value={criticalCount}
-            label="Críticas"
-            sublabel="Atender ahora"
-            active={heroFilter === 'critical'}
-            onClick={() => setHeroFilter(heroFilter === 'critical' ? null : 'critical')}
-            valueColor="var(--danger-fg)"
-          />
-          <HeroBox
-            icon={<Clock size={20} strokeWidth={1.8} />}
-            iconColor="var(--rumbo-coral)"
-            iconBg="var(--rumbo-coral-soft)"
-            value={etaThisWeek}
-            label="ETA esta semana"
-            sublabel="Llegan en ≤7 días"
-            active={heroFilter === 'eta_week'}
-            onClick={() => setHeroFilter(heroFilter === 'eta_week' ? null : 'eta_week')}
-            valueColor="var(--rumbo-coral)"
-          />
-        </div>
-
-        {/* Filters */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-          {/* Status dropdown */}
-          <div style={{ position: 'relative' }}>
-            <FilterButton
-              label="Estado"
-              count={statusFilters.length}
-              active={showStatusDropdown}
-              onClick={() => { setShowStatusDropdown(!showStatusDropdown); setShowAlertDropdown(false); }}
+          {/* Hero stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '28px' }}>
+            <HeroBox
+              icon={<Package size={20} strokeWidth={1.8} />}
+              iconColor="var(--rumbo-navy)"
+              iconBg="var(--rumbo-navy-soft)"
+              value={totalActive}
+              label="Operaciones activas"
+              sublabel="En curso ahora"
+              active={heroFilter === 'all_active'}
+              onClick={() => setHeroFilter(heroFilter === 'all_active' ? null : 'all_active')}
             />
-            {showStatusDropdown && (
-              <FilterDropdown
-                options={STATUS_OPTIONS}
-                selected={statusFilters}
-                onToggle={(v) => toggleStatusFilter(v as StatusFilter)}
-                onClear={() => setStatusFilters([])}
-                onClose={() => setShowStatusDropdown(false)}
+            <HeroBox
+              icon={<AlertTriangle size={20} strokeWidth={1.8} />}
+              iconColor="var(--danger-fg)"
+              iconBg="var(--danger-bg)"
+              value={criticalCount}
+              label="Críticas"
+              sublabel="Atender ahora"
+              active={heroFilter === 'critical'}
+              onClick={() => setHeroFilter(heroFilter === 'critical' ? null : 'critical')}
+              valueColor="var(--danger-fg)"
+            />
+            <HeroBox
+              icon={<Clock size={20} strokeWidth={1.8} />}
+              iconColor="var(--rumbo-coral)"
+              iconBg="var(--rumbo-coral-soft)"
+              value={etaThisWeek}
+              label="ETA esta semana"
+              sublabel="Llegan en ≤7 días"
+              active={heroFilter === 'eta_week'}
+              onClick={() => setHeroFilter(heroFilter === 'eta_week' ? null : 'eta_week')}
+              valueColor="var(--rumbo-coral)"
+            />
+          </div>
+
+          {/* Filters */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <div style={{ position: 'relative' }}>
+              <FilterButton
+                label="Estado"
+                count={statusFilters.length}
+                active={showStatusDropdown}
+                onClick={() => { setShowStatusDropdown(!showStatusDropdown); setShowAlertDropdown(false); }}
               />
-            )}
-          </div>
-
-          {/* Alert dropdown */}
-          <div style={{ position: 'relative' }}>
-            <FilterButton
-              label="Alertas"
-              count={alertFilters.length}
-              active={showAlertDropdown}
-              onClick={() => { setShowAlertDropdown(!showAlertDropdown); setShowStatusDropdown(false); }}
-            />
-            {showAlertDropdown && (
-              <FilterDropdown
-                options={ALERT_OPTIONS}
-                selected={alertFilters}
-                onToggle={(v) => toggleAlertFilter(v as AlertFilter)}
-                onClear={() => setAlertFilters([])}
-                onClose={() => setShowAlertDropdown(false)}
-              />
-            )}
-          </div>
-
-          <div style={{ flex: 1 }} />
-
-          {/* Search */}
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '300px' }}>
-            <Search size={14} style={{ position: 'absolute', left: '12px', color: 'var(--text-tertiary)' }} />
-            <input
-              type="text"
-              placeholder="Buscar operaciones..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                height: '34px',
-                padding: '0 12px 0 34px',
-                borderRadius: '7px',
-                border: '1px solid var(--border-default)',
-                background: 'var(--surface-card)',
-                fontSize: '13px',
-                color: 'var(--text-primary)',
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Active filter chips */}
-        {(heroFilter || statusFilters.length > 0 || alertFilters.length > 0) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Filtros:</span>
-            {heroFilter === 'all_active' && <ActiveFilterChip label="Solo activas" onRemove={() => setHeroFilter(null)} />}
-            {heroFilter === 'critical' && <ActiveFilterChip label="Críticas" onRemove={() => setHeroFilter(null)} />}
-            {heroFilter === 'eta_week' && <ActiveFilterChip label="ETA esta semana" onRemove={() => setHeroFilter(null)} />}
-            {statusFilters.map((s) => (
-              <ActiveFilterChip key={s} label={STATUS_OPTIONS.find((o) => o.value === s)?.label || s} onRemove={() => toggleStatusFilter(s)} />
-            ))}
-            {alertFilters.map((a) => (
-              <ActiveFilterChip key={a} label={`Alerta ${ALERT_OPTIONS.find((o) => o.value === a)?.label || a}`} onRemove={() => toggleAlertFilter(a)} />
-            ))}
-            <button
-              onClick={() => { setHeroFilter(null); setStatusFilters([]); setAlertFilters([]); }}
-              style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
-            >
-              Limpiar todo
-            </button>
-          </div>
-        )}
-
-        {/* Table */}
-        <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: '10px', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 1.1fr 1fr 1.2fr 1fr 1.1fr', padding: '0 20px', height: '42px', alignItems: 'center', borderBottom: '1px solid var(--border-default)' }}>
-            <HeaderCell>Operación</HeaderCell>
-            <HeaderCell>Estado</HeaderCell>
-            <HeaderCell>Carrier</HeaderCell>
-            <HeaderCell>Origen</HeaderCell>
-            <HeaderCell>ETA</HeaderCell>
-            <HeaderCell align="right">Alertas</HeaderCell>
-          </div>
-
-          {loading ? (
-            <><SkeletonRow /><SkeletonRow /><SkeletonRow /><SkeletonRow /></>
-          ) : filteredOps.length === 0 ? (
-            <EmptyState
-              title={operations.length === 0 ? "No hay operaciones aún" : "Sin resultados"}
-              description={operations.length === 0 ? "Comenzá creando una operación o procesando un email" : "Probá ajustar los filtros"}
-              action={operations.length === 0 ? (
-                <Button onClick={() => setShowModal(true)}><Plus size={15} />Nueva operación</Button>
-              ) : (
-                <Button variant="secondary" onClick={() => { setHeroFilter(null); setStatusFilters([]); setAlertFilters([]); setSearchQuery(''); }}>Limpiar filtros</Button>
+              {showStatusDropdown && (
+                <FilterDropdown
+                  options={STATUS_OPTIONS}
+                  selected={statusFilters}
+                  onToggle={(v) => toggleStatusFilter(v as StatusFilter)}
+                  onClear={() => setStatusFilters([])}
+                  onClose={() => setShowStatusDropdown(false)}
+                />
               )}
-            />
-          ) : (
-            filteredOps.map((op, idx) => {
-              const eta = getETA(op.eta)
-              const alerts = getAlerts(op)
-              const hasManyAlerts = alerts.count >= 5
-              return (
-                <div
-                  key={op.id}
-                  onClick={() => router.push(`/operations/${op.id}`)}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '2.4fr 1.1fr 1fr 1.2fr 1fr 1.1fr',
-                    padding: '0 20px',
-                    minHeight: '64px',
-                    alignItems: 'center',
-                    borderBottom: idx < filteredOps.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-                    cursor: 'pointer',
-                    transition: 'background 100ms ease',
-                    position: 'relative',
-                    borderLeft: hasManyAlerts ? '3px solid var(--rumbo-coral)' : '3px solid transparent',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--surface-hover)'
-                    if (!hasManyAlerts) e.currentTarget.style.borderLeft = '3px solid var(--rumbo-coral)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent'
-                    if (!hasManyAlerts) e.currentTarget.style.borderLeft = '3px solid transparent'
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>{op.operationCode}</div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{op.clientName}</div>
+            </div>
+
+            <div style={{ position: 'relative' }}>
+              <FilterButton
+                label="Alertas"
+                count={alertFilters.length}
+                active={showAlertDropdown}
+                onClick={() => { setShowAlertDropdown(!showAlertDropdown); setShowStatusDropdown(false); }}
+              />
+              {showAlertDropdown && (
+                <FilterDropdown
+                  options={ALERT_OPTIONS}
+                  selected={alertFilters}
+                  onToggle={(v) => toggleAlertFilter(v as AlertFilter)}
+                  onClear={() => setAlertFilters([])}
+                  onClose={() => setShowAlertDropdown(false)}
+                />
+              )}
+            </div>
+
+            <div style={{ flex: 1 }} />
+
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '300px' }}>
+              <Search size={14} style={{ position: 'absolute', left: '12px', color: 'var(--text-tertiary)' }} />
+              <input
+                type="text"
+                placeholder="Buscar operaciones..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  height: '34px',
+                  padding: '0 12px 0 34px',
+                  borderRadius: '7px',
+                  border: '1px solid var(--border-default)',
+                  background: 'var(--surface-card)',
+                  fontSize: '13px',
+                  color: 'var(--text-primary)',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Active filters */}
+          {(heroFilter || statusFilters.length > 0 || alertFilters.length > 0) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Filtros:</span>
+              {heroFilter === 'all_active' && <ActiveFilterChip label="Solo activas" onRemove={() => setHeroFilter(null)} />}
+              {heroFilter === 'critical' && <ActiveFilterChip label="Críticas" onRemove={() => setHeroFilter(null)} />}
+              {heroFilter === 'eta_week' && <ActiveFilterChip label="ETA esta semana" onRemove={() => setHeroFilter(null)} />}
+              {statusFilters.map((s) => (
+                <ActiveFilterChip key={s} label={STATUS_OPTIONS.find((o) => o.value === s)?.label || s} onRemove={() => toggleStatusFilter(s)} />
+              ))}
+              {alertFilters.map((a) => (
+                <ActiveFilterChip key={a} label={`Alerta ${ALERT_OPTIONS.find((o) => o.value === a)?.label || a}`} onRemove={() => toggleAlertFilter(a)} />
+              ))}
+              <button
+                onClick={() => { setHeroFilter(null); setStatusFilters([]); setAlertFilters([]); }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                Limpiar todo
+              </button>
+            </div>
+          )}
+
+          {/* Table */}
+          <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: '10px', overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 0.9fr 1.8fr', padding: '0 20px', height: '42px', alignItems: 'center', borderBottom: '1px solid var(--border-default)' }}>
+              <HeaderCell>Operación</HeaderCell>
+              <HeaderCell>Estado</HeaderCell>
+              <HeaderCell>Carrier</HeaderCell>
+              <HeaderCell>Origen</HeaderCell>
+              <HeaderCell>ETA</HeaderCell>
+              <HeaderCell>Próxima acción</HeaderCell>
+            </div>
+
+            {loading ? (
+              <><SkeletonRow /><SkeletonRow /><SkeletonRow /><SkeletonRow /></>
+            ) : filteredOps.length === 0 ? (
+              <EmptyState
+                title={operations.length === 0 ? "No hay operaciones aún" : "Sin resultados"}
+                description={operations.length === 0 ? "Comenzá creando una operación o procesando un email" : "Probá ajustar los filtros"}
+                action={operations.length === 0 ? (
+                  <Button onClick={() => setShowModal(true)}><Plus size={15} />Nueva operación</Button>
+                ) : (
+                  <Button variant="secondary" onClick={() => { setHeroFilter(null); setStatusFilters([]); setAlertFilters([]); setSearchQuery(''); }}>Limpiar filtros</Button>
+                )}
+              />
+            ) : (
+              filteredOps.map((op, idx) => {
+                const eta = getETA(op.eta)
+                const alerts = getAlertInfo(op)
+                const hasManyAlerts = alerts.count >= 5
+                return (
+                  <div
+                    key={op.id}
+                    onClick={() => router.push(`/operations/${op.id}`)}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 0.9fr 1.8fr',
+                      padding: '0 20px',
+                      minHeight: '64px',
+                      alignItems: 'center',
+                      borderBottom: idx < filteredOps.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                      cursor: 'pointer',
+                      transition: 'background 100ms ease',
+                      position: 'relative',
+                      borderLeft: hasManyAlerts ? '3px solid var(--rumbo-coral)' : '3px solid transparent',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--surface-hover)'
+                      if (!hasManyAlerts) e.currentTarget.style.borderLeft = '3px solid var(--rumbo-coral)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent'
+                      if (!hasManyAlerts) e.currentTarget.style.borderLeft = '3px solid transparent'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>{op.operationCode}</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{op.clientName}</div>
+                    </div>
+                    <div><StatusBadge status={op.status} /></div>
+                    <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{op.shippingLine}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '18px', lineHeight: 1 }}>{getCountryFlag(op.originCountry)}</span>
+                      <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{getCountryNameES(op.originCountry)}</span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '14px', color: eta.primary === '—' ? 'var(--text-quaternary)' : 'var(--text-primary)' }}>{eta.primary}</div>
+                      {eta.secondary && (<div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{eta.secondary}</div>)}
+                    </div>
+                    <div>
+                      <NextActionCell alerts={alerts} />
+                    </div>
                   </div>
-                  <div><StatusBadge status={op.status} /></div>
-                  <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{op.shippingLine}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '18px', lineHeight: 1 }}>{getCountryFlag(op.originCountry)}</span>
-                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{getCountryNameES(op.originCountry)}</span>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '14px', color: eta.primary === '—' ? 'var(--text-quaternary)' : 'var(--text-primary)' }}>{eta.primary}</div>
-                    {eta.secondary && (<div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{eta.secondary}</div>)}
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    {alerts.count > 0 && alerts.priority ? (
-                      <AlertBadge count={alerts.count} priority={alerts.priority} />
-                    ) : (
-                      <span style={{ color: 'var(--text-quaternary)', fontSize: '14px' }}>—</span>
-                    )}
-                  </div>
-                </div>
-              )
-            })
+                )
+              })
+            )}
+          </div>
+
+          {!loading && filteredOps.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', fontSize: '13px', color: 'var(--text-tertiary)' }}>
+              <span>Mostrando {filteredOps.length} de {operations.length} operaciones</span>
+            </div>
           )}
         </div>
-
-        {!loading && filteredOps.length > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', fontSize: '13px', color: 'var(--text-tertiary)' }}>
-            <span>Mostrando {filteredOps.length} de {operations.length} operaciones</span>
-          </div>
-        )}
       </div>
 
       {showEmailIntake && <EmailIntakeModal onClose={() => setShowEmailIntake(false)} />}
@@ -462,6 +453,44 @@ export default function Dashboard() {
             </form>
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+function NextActionCell({ alerts }: { alerts: { count: number; priority: 'HIGH' | 'MEDIUM' | 'LOW' | null; topTask?: string } }) {
+  if (alerts.count === 0 || !alerts.priority) {
+    return <span style={{ color: 'var(--text-quaternary)', fontSize: '14px' }}>—</span>
+  }
+
+  const dotColors = {
+    HIGH: 'var(--danger-dot)',
+    MEDIUM: 'var(--warning-dot)',
+    LOW: 'var(--info-dot)',
+  }
+
+  const truncated = alerts.topTask && alerts.topTask.length > 42 
+    ? alerts.topTask.substring(0, 42) + '...' 
+    : alerts.topTask
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColors[alerts.priority], flexShrink: 0 }} />
+      <span style={{ fontSize: '13px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+        {truncated}
+      </span>
+      {alerts.count > 1 && (
+        <span style={{
+          fontSize: '11px',
+          fontWeight: 500,
+          color: 'var(--text-tertiary)',
+          background: 'var(--surface-muted)',
+          borderRadius: '4px',
+          padding: '2px 6px',
+          flexShrink: 0,
+        }}>
+          +{alerts.count - 1}
+        </span>
       )}
     </div>
   )
@@ -508,18 +537,7 @@ function HeroBox({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <div
-          style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '8px',
-            background: iconBg,
-            color: iconColor,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
+        <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: iconBg, color: iconColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {icon}
         </div>
         {active && (
@@ -559,21 +577,7 @@ function FilterButton({ label, count, active, onClick }: { label: string; count:
     >
       {label}
       {count > 0 && (
-        <span
-          style={{
-            background: 'var(--rumbo-navy)',
-            color: 'white',
-            borderRadius: '10px',
-            padding: '0 6px',
-            fontSize: '11px',
-            fontWeight: 600,
-            minWidth: '18px',
-            height: '18px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
+        <span style={{ background: 'var(--rumbo-navy)', color: 'white', borderRadius: '10px', padding: '0 6px', fontSize: '11px', fontWeight: 600, minWidth: '18px', height: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
           {count}
         </span>
       )}
@@ -586,55 +590,16 @@ function FilterDropdown({ options, selected, onToggle, onClear, onClose }: { opt
   return (
     <>
       <div style={{ position: 'fixed', inset: 0, zIndex: 20 }} onClick={onClose} />
-      <div
-        style={{
-          position: 'absolute',
-          top: 'calc(100% + 4px)',
-          left: 0,
-          background: 'var(--surface-card)',
-          border: '1px solid var(--border-default)',
-          borderRadius: '8px',
-          boxShadow: 'var(--shadow-popover)',
-          minWidth: '200px',
-          zIndex: 30,
-          padding: '6px',
-        }}
-      >
+      <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: '8px', boxShadow: 'var(--shadow-popover)', minWidth: '200px', zIndex: 30, padding: '6px' }}>
         {options.map((opt) => (
           <button
             key={opt.value}
             onClick={() => onToggle(opt.value)}
-            style={{
-              width: '100%',
-              padding: '8px 10px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              background: 'transparent',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '13px',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-              textAlign: 'left',
-              transition: 'background 80ms',
-            }}
+            style={{ width: '100%', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '10px', background: 'transparent', border: 'none', borderRadius: '6px', fontSize: '13px', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', transition: 'background 80ms' }}
             onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
-            <div
-              style={{
-                width: '16px',
-                height: '16px',
-                borderRadius: '4px',
-                border: '1.5px solid ' + (selected.includes(opt.value) ? 'var(--rumbo-navy)' : 'var(--border-strong)'),
-                background: selected.includes(opt.value) ? 'var(--rumbo-navy)' : 'transparent',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
+            <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: '1.5px solid ' + (selected.includes(opt.value) ? 'var(--rumbo-navy)' : 'var(--border-strong)'), background: selected.includes(opt.value) ? 'var(--rumbo-navy)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {selected.includes(opt.value) && <Check size={11} style={{ color: 'white' }} strokeWidth={3} />}
             </div>
             {opt.label}
@@ -662,20 +627,7 @@ function ActiveFilterChip({ label, onRemove }: { label: string; onRemove: () => 
   return (
     <button
       onClick={onRemove}
-      style={{
-        height: '24px',
-        padding: '0 8px 0 10px',
-        borderRadius: '6px',
-        background: 'var(--rumbo-navy-soft)',
-        color: 'var(--rumbo-navy)',
-        fontSize: '12px',
-        fontWeight: 500,
-        border: 'none',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '6px',
-        cursor: 'pointer',
-      }}
+      style={{ height: '24px', padding: '0 8px 0 10px', borderRadius: '6px', background: 'var(--rumbo-navy-soft)', color: 'var(--rumbo-navy)', fontSize: '12px', fontWeight: 500, border: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
     >
       {label}
       <span style={{ fontSize: '14px', lineHeight: 1, opacity: 0.7 }}>×</span>
