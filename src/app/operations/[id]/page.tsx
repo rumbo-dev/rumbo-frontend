@@ -2,8 +2,8 @@
 
 import { useEffect, useState, ReactNode } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import RouteMapReal from './RouteMapReal'
 import { ArrowLeft, MoreHorizontal, Send, Mail, FileText, AlertCircle, Check, Sparkles, Container, Anchor, MapPin, Clock, ChevronRight, ChevronDown, Edit3, X, Activity, Calendar, MessageSquare } from 'lucide-react'
+import RouteMapReal from './RouteMapReal'
 import { StatusBadge, Button, Card, TeamAvatar, getCountryFlag, getCountryNameES } from '@/components/index'
 import Sidebar from '@/components/Sidebar'
 
@@ -331,23 +331,25 @@ export default function OperationPage() {
 // ============================================================================
 
 function HeroSection({ operation, subStatusInfo, progress }: { operation: Operation; subStatusInfo: any; progress: number }) {
+  const etaInfo = getETAInfo(operation.eta)
+  const etdInfo = getETAInfo(operation.etd)
+
   return (
     <div style={{
       background: 'linear-gradient(135deg, var(--surface-card) 0%, #FAFAF7 100%)',
       border: '1px solid var(--border-default)',
       borderRadius: '16px',
-      padding: '28px 32px',
+      padding: '24px 28px',
       position: 'relative',
       overflow: 'hidden',
     }}>
       {/* Top row: title + identity + actions */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px', gap: '16px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px', gap: '16px', flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
-            <h1 style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+            <h1 style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
               {operation.operationCode}
             </h1>
-            {/* Status pill */}
             <div style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -361,21 +363,19 @@ function HeroSection({ operation, subStatusInfo, progress }: { operation: Operat
                 {subStatusInfo.label}
               </span>
             </div>
-            {/* Owner */}
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: 'var(--surface-muted)', borderRadius: '6px' }}>
               <TeamAvatar team={operation.currentOwner} size="sm" />
               <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>
                 {getTeamLabel(operation.currentOwner)}
               </span>
             </div>
-            {/* Delayed flag */}
             {operation.isDelayed && (
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: '#FCEBEB', borderRadius: '6px' }}>
                 <span style={{ fontSize: '12px', fontWeight: 500, color: '#A32D2D' }}>Demorada</span>
               </div>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 500 }}>{operation.clientName}</span>
             <span style={{ color: 'var(--text-quaternary)' }}>·</span>
             <span>{operation.mode || 'FCL'}</span>
@@ -401,178 +401,74 @@ function HeroSection({ operation, subStatusInfo, progress }: { operation: Operat
         </div>
       </div>
 
-      {/* ROUTE MAP */}
-      <RouteMapReal operation={operation} progress={progress} />
+      {/* Split layout: data left + map right */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '24px', alignItems: 'stretch' }}>
 
-      {/* Key data strip */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(5, 1fr)',
-        gap: '24px',
-        marginTop: '20px',
-        padding: '16px 20px',
-        background: 'var(--surface-card)',
-        border: '1px solid var(--border-subtle)',
-        borderRadius: '10px',
-      }}>
-        <DataPoint label="Carrier" value={operation.shippingLine || '—'} />
-        <DataPoint label="Vessel" value={operation.vessel || '—'} />
-        <DataPoint label="Container" value={operation.containerNumber || '—'} mono />
-        <DataPoint label="BL" value={operation.blNumber || '—'} mono />
-        <DataPoint label="Peso · Vol" value={operation.weightKg ? `${operation.weightKg.toLocaleString()} kg${operation.cbm ? ` · ${operation.cbm} m³` : ''}` : '—'} />
+        {/* LEFT: 3 sections of grouped data */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+          {/* RUTA */}
+          <div style={{ padding: '14px 16px', background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px' }}>
+            <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
+              Ruta
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+              <HeroDataField label="ETD" value={etdInfo.primary} secondary={etdInfo.secondary} />
+              <HeroDataField label="ETA" value={etaInfo.primary} secondary={etaInfo.secondary} highlight={etaInfo.primary !== '—' && !operation.isDelayed} />
+              <HeroDataField label="Progreso" value={`${Math.round(progress * 100)}%`} secondary={progress < 1 ? 'En curso' : 'Completado'} />
+            </div>
+          </div>
+
+          {/* EMBARQUE */}
+          <div style={{ padding: '14px 16px', background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px' }}>
+            <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
+              Embarque
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px 16px' }}>
+              <HeroDataField label="Carrier · Vessel" value={`${operation.shippingLine || '—'}${operation.vessel ? ` · ${operation.vessel}` : ''}`} />
+              <HeroDataField label="Booking" value={operation.bookingNumber || '—'} mono />
+              <HeroDataField label="BL" value={operation.blNumber || '—'} mono />
+              <HeroDataField label="Container" value={operation.containerNumber || '—'} mono />
+            </div>
+          </div>
+
+          {/* CARGA */}
+          <div style={{ padding: '14px 16px', background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px' }}>
+            <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
+              Carga
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+              <HeroDataField label="Peso" value={operation.weightKg ? `${operation.weightKg.toLocaleString()} kg` : '—'} />
+              <HeroDataField label="Volumen" value={operation.cbm ? `${operation.cbm} m³` : '—'} />
+              <HeroDataField label="Costo est." value={operation.costEstimate ? `$${operation.costEstimate.toLocaleString()}` : '—'} />
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT: square map */}
+        <div style={{ alignSelf: 'stretch' }}>
+          <RouteMapReal operation={operation} progress={progress} compact />
+        </div>
+
       </div>
     </div>
   )
 }
 
-function DataPoint({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function HeroDataField({ label, value, secondary, mono, highlight }: { label: string; value: string; secondary?: string; mono?: boolean; highlight?: boolean }) {
   return (
     <div style={{ minWidth: 0 }}>
-      <div style={{ fontSize: '10.5px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', fontWeight: 500 }}>
+      <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px', fontWeight: 500 }}>
         {label}
       </div>
       <div style={{
         fontSize: '14px',
-        fontWeight: 500,
-        color: 'var(--text-primary)',
+        fontWeight: 600,
+        color: highlight ? 'var(--rumbo-coral)' : 'var(--text-primary)',
         fontFamily: mono ? 'ui-monospace, "SF Mono", Menlo, monospace' : 'inherit',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
-      }}>
-        {value}
-      </div>
-    </div>
-  )
-}
-
-// ============================================================================
-// ROUTE MAP — SVG world map with route arc
-// ============================================================================
-
-function RouteMap({ operation, progress }: { operation: Operation; progress: number }) {
-  const ports: Record<string, [number, number]> = {
-    CN: [121.5, 30.3], AR: [-58.3, -34.6], BR: [-43.2, -22.9], CL: [-71.6, -33.0],
-    PE: [-77.2, -12.0], UY: [-56.2, -34.9], US: [-87.6, 30.2], DE: [8.6, 53.5],
-    NL: [4.3, 51.9], ES: [-3.7, 40.4], IT: [12.6, 41.1], JP: [139.8, 35.0],
-    KR: [126.9, 37.4], IN: [72.8, 19.0], AE: [54.3, 25.1], TR: [28.9, 41.0],
-  };
-
-  const toSVG = ([lon, lat]: [number, number]): [number, number] => [
-    ((lon + 180) / 360) * 1000,
-    ((90 - lat) / 180) * 300,
-  ];
-
-  const [oX, oY] = toSVG(ports[operation.originCountry || 'CN'] || [121.5, 30.3]);
-  const [dX, dY] = toSVG(ports[operation.destinationCountry || 'AR'] || [-58.3, -34.6]);
-
-  const mX = (oX + dX) / 2;
-  const mY = Math.min(oY, dY) - 60;
-  const t = progress;
-  const cX = (1-t)*(1-t)*oX + 2*(1-t)*t*mX + t*t*dX;
-  const cY = (1-t)*(1-t)*oY + 2*(1-t)*t*mY + t*t*dY;
-
-  const statusColor = { CLOSED: '#888780', IN_TRANSIT: '#1E3A7B', AT_DESTINATION: '#047857' }[operation.status] || '#F47A5A';
-  const statusText = { QUOTING: 'Pendiente', BOOKING: 'En booking', IN_TRANSIT: 'En tránsito', AT_DESTINATION: 'En destino', CLOSED: 'Finalizada' }[operation.status] || '';
-
-  return (
-    <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: '12px', overflow: 'hidden' }}>
-      <div style={{ position: 'relative', height: '320px', background: '#EAF1F8' }}>
-        <svg viewBox="0 0 1000 300" preserveAspectRatio="xMidYMid slice" style={{ width: '100%', height: '100%', display: 'block' }}>
-          {/* Grid */}
-          {[...Array(13)].map((_, i) => <line key={`v${i}`} x1={(i/12)*1000} y1={0} x2={(i/12)*1000} y2={300} stroke="rgba(0,0,0,0.05)" strokeWidth="0.5" />)}
-          {[...Array(7)].map((_, i) => <line key={`h${i}`} x1={0} y1={(i/6)*300} x2={1000} y2={(i/6)*300} stroke="rgba(0,0,0,0.05)" strokeWidth="0.5" />)}
-
-          {/* Continent shapes (simplified) */}
-          <g fill="#F4F1E8" stroke="#E0DCCF" strokeWidth="0.5" opacity="0.7">
-            {/* East Asia */}
-            <path d="M 840 60 Q 920 50 1000 80 Q 1000 180 950 220 Q 900 200 880 130 Q 840 90 840 60 Z" />
-            {/* Europe */}
-            <path d="M 540 70 Q 650 60 700 100 Q 690 160 600 170 Q 550 150 540 110 Z" />
-            {/* Africa */}
-            <path d="M 600 150 Q 700 140 750 200 Q 730 270 650 280 Q 600 250 600 150 Z" />
-            {/* North America */}
-            <path d="M 80 80 Q 200 60 240 140 Q 220 180 140 190 Q 100 150 80 100 Z" />
-            {/* South America */}
-            <path d="M 220 180 Q 310 170 340 280 Q 280 310 220 290 Z" />
-            {/* India */}
-            <path d="M 820 180 Q 860 170 880 220 Q 860 250 820 240 Z" />
-          </g>
-
-          {/* Route pending */}
-          <path d={`M ${oX} ${oY} Q ${mX} ${mY} ${dX} ${dY}`} stroke="#D0D0D0" strokeWidth="2" fill="none" strokeDasharray="5 4" opacity="0.5" />
-
-          {/* Route traveled */}
-          {progress > 0.01 && <path d={`M ${oX} ${oY} Q ${mX} ${mY} ${cX} ${cY}`} stroke={statusColor} strokeWidth="3" fill="none" opacity="0.9" strokeLinecap="round" />}
-
-          {/* Origin */}
-          <circle cx={oX} cy={oY} r="12" fill="white" stroke={statusColor} strokeWidth="3" />
-          <circle cx={oX} cy={oY} r="5" fill={statusColor} />
-          <text x={oX} y={oY - 24} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--text-primary)">{operation.originCountry}</text>
-
-          {/* Destination */}
-          <circle cx={dX} cy={dY} r="12" fill="white" stroke={statusColor} strokeWidth="3" />
-          <circle cx={dX} cy={dY} r="5" fill={statusColor} />
-          <text x={dX} y={dY + 26} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--text-primary)">{operation.destinationCountry}</text>
-
-          {/* Container */}
-          {operation.status !== 'QUOTING' && operation.status !== 'CLOSED' && (
-            <>
-              <circle cx={cX} cy={cY} r="18" fill={statusColor} opacity="0.12" />
-              <circle cx={cX} cy={cY} r="12" fill={statusColor} />
-              <g transform={`translate(${cX - 8}, ${cY - 4})`}>
-                <rect x="0" y="0" width="16" height="8" rx="1" stroke="white" strokeWidth="1.2" fill="none" />
-                <line x1="3" y1="0" x2="3" y2="8" stroke="white" strokeWidth="1" />
-                <line x1="8" y1="0" x2="8" y2="8" stroke="white" strokeWidth="1" />
-                <line x1="13" y1="0" x2="13" y2="8" stroke="white" strokeWidth="1" />
-              </g>
-            </>
-          )}
-        </svg>
-
-        {/* Status badge */}
-        <div style={{ position: 'absolute', top: '14px', left: '14px', background: 'white', padding: '7px 11px', borderRadius: '8px', border: '0.5px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 500, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: statusColor }} />
-          <span style={{ color: 'var(--text-primary)' }}>{statusText}</span>
-        </div>
-      </div>
-      <RouteMetrics operation={operation} progress={progress} />
-    </div>
-  );
-}
-
-function RouteMetrics({ operation, progress }: { operation: Operation; progress: number }) {
-  const etaInfo = getETAInfo(operation.eta)
-  const etdInfo = getETAInfo(operation.etd)
-
-  return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(4, 1fr)',
-      padding: '14px 20px',
-      gap: '24px',
-      borderTop: '1px solid var(--border-subtle)',
-      background: '#FAFAF7',
-    }}>
-      <SmallMetric label="ETD" value={etdInfo.primary} secondary={etdInfo.secondary} />
-      <SmallMetric label="ETA" value={etaInfo.primary} secondary={etaInfo.secondary} highlight={!operation.isDelayed && etaInfo.primary !== '—'} />
-      <SmallMetric label="Progreso" value={`${Math.round(progress * 100)}%`} secondary={progress < 1 ? 'En curso' : 'Completado'} />
-      <SmallMetric label="Booking" value={operation.bookingNumber || '—'} mono />
-    </div>
-  )
-}
-
-function SmallMetric({ label, value, secondary, mono, highlight }: { label: string; value: string; secondary?: string; mono?: boolean; highlight?: boolean }) {
-  return (
-    <div>
-      <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px', fontWeight: 500 }}>
-        {label}
-      </div>
-      <div style={{
-        fontSize: '13px',
-        fontWeight: 600,
-        color: highlight ? 'var(--rumbo-coral)' : 'var(--text-primary)',
-        fontFamily: mono ? 'ui-monospace, monospace' : 'inherit',
       }}>
         {value}
       </div>
@@ -584,6 +480,7 @@ function SmallMetric({ label, value, secondary, mono, highlight }: { label: stri
     </div>
   )
 }
+
 
 // ============================================================================
 // SECTION CARD

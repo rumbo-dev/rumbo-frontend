@@ -9,10 +9,6 @@ interface Operation {
   status: string
   originCountry?: string | null
   destinationCountry?: string | null
-  bookingNumber?: string | null
-  etd?: string | null
-  eta?: string | null
-  isDelayed?: boolean
 }
 
 const PORTS: Record<string, [number, number]> = {
@@ -34,7 +30,19 @@ const PORTS: Record<string, [number, number]> = {
   TR: [28.9, 41.0],
 }
 
-export default function RouteMapReal({ operation, progress }: { operation: Operation; progress: number }) {
+interface Props {
+  operation: Operation
+  progress: number
+  compact?: boolean
+  projection?: 'equalEarth' | 'orthographic'
+}
+
+export default function RouteMapReal({
+  operation,
+  progress,
+  compact = false,
+  projection = 'orthographic',
+}: Props) {
   const origin = PORTS[operation.originCountry || 'CN'] || [121.5, 30.3]
   const dest = PORTS[operation.destinationCountry || 'AR'] || [-58.3, -34.6]
 
@@ -56,21 +64,61 @@ export default function RouteMapReal({ operation, progress }: { operation: Opera
 
   const showContainer = operation.status !== 'QUOTING' && operation.status !== 'CLOSED'
 
+  const centerLon = (origin[0] + dest[0]) / 2
+  const centerLat = (origin[1] + dest[1]) / 2
+
+  const projectionName = projection === 'orthographic' ? 'geoOrthographic' : 'geoEqualEarth'
+  const projectionConfig =
+    projection === 'orthographic'
+      ? {
+          rotate: [-centerLon, -centerLat, 0] as [number, number, number],
+          scale: compact ? 200 : 280,
+        }
+      : {
+          scale: compact ? 100 : 145,
+          center: [centerLon * 0.3, centerLat * 0.3] as [number, number],
+        }
+
+  const width = compact ? 320 : 1000
+  const height = compact ? 320 : 320
+
   return (
     <div style={{
       background: 'var(--surface-card)',
       border: '1px solid var(--border-subtle)',
       borderRadius: '12px',
       overflow: 'hidden',
+      height: '100%',
+      minHeight: compact ? '320px' : 'auto',
+      display: 'flex',
+      flexDirection: 'column',
     }}>
-      <div style={{ position: 'relative', height: '320px', background: '#E8F1F8' }}>
+      <div style={{
+        position: 'relative',
+        flex: 1,
+        background: projection === 'orthographic'
+          ? 'radial-gradient(circle at 50% 40%, #F0F7FD 0%, #D8E4F0 70%, #C5D4E5 100%)'
+          : 'linear-gradient(135deg, #E3F2FD 0%, #ECE7F1 100%)',
+        minHeight: '260px',
+      }}>
         <ComposableMap
-          projection="geoEqualEarth"
-          projectionConfig={{ scale: 145 }}
-          width={1000}
-          height={320}
+          projection={projectionName}
+          projectionConfig={projectionConfig}
+          width={width}
+          height={height}
           style={{ width: '100%', height: '100%' }}
         >
+          {projection === 'orthographic' && (
+            <circle
+              cx={width / 2}
+              cy={height / 2}
+              r={projectionConfig.scale}
+              fill="#E8F1F8"
+              stroke="#D0DCE8"
+              strokeWidth="1"
+            />
+          )}
+
           <Geographies geography={geoUrl}>
             {({ geographies }: any) =>
               geographies.map((geo: any) => (
@@ -78,7 +126,7 @@ export default function RouteMapReal({ operation, progress }: { operation: Opera
                   key={geo.rsmKey}
                   geography={geo}
                   fill="#F4F1E8"
-                  stroke="#E0DCCF"
+                  stroke="#D8D2C0"
                   strokeWidth={0.4}
                   style={{
                     default: { outline: 'none' },
@@ -90,17 +138,15 @@ export default function RouteMapReal({ operation, progress }: { operation: Opera
             }
           </Geographies>
 
-          {/* Pending route (full path) */}
           <Line
             from={origin}
             to={dest}
-            stroke="#C4C4C4"
+            stroke="#B0B0B0"
             strokeWidth={1.5}
             strokeLinecap="round"
             strokeDasharray="4 4"
           />
 
-          {/* Traveled route */}
           {progress > 0.01 && (
             <Line
               from={origin}
@@ -111,52 +157,64 @@ export default function RouteMapReal({ operation, progress }: { operation: Opera
             />
           )}
 
-          {/* Origin marker */}
           <Marker coordinates={origin}>
-            <circle r={9} fill="white" stroke={statusColor} strokeWidth={2.5} />
-            <circle r={4} fill={statusColor} />
-            <text textAnchor="middle" y={-15} style={{ fontSize: 11, fontWeight: 700, fill: '#1A1A1A' }}>
+            <circle r={compact ? 7 : 9} fill="white" stroke={statusColor} strokeWidth={2.5} />
+            <circle r={compact ? 3 : 4} fill={statusColor} />
+            <text
+              textAnchor="middle"
+              y={compact ? -12 : -15}
+              style={{ fontSize: compact ? 9 : 11, fontWeight: 700, fill: '#1A1A1A' }}
+            >
               {operation.originCountry}
             </text>
           </Marker>
 
-          {/* Destination marker */}
           <Marker coordinates={dest}>
-            <circle r={9} fill="white" stroke={statusColor} strokeWidth={2.5} />
-            <circle r={4} fill={statusColor} />
-            <text textAnchor="middle" y={22} style={{ fontSize: 11, fontWeight: 700, fill: '#1A1A1A' }}>
+            <circle r={compact ? 7 : 9} fill="white" stroke={statusColor} strokeWidth={2.5} />
+            <circle r={compact ? 3 : 4} fill={statusColor} />
+            <text
+              textAnchor="middle"
+              y={compact ? 17 : 22}
+              style={{ fontSize: compact ? 9 : 11, fontWeight: 700, fill: '#1A1A1A' }}
+            >
               {operation.destinationCountry}
             </text>
           </Marker>
 
-          {/* Container in transit */}
           {showContainer && (
             <Marker coordinates={[containerLon, containerLat]}>
-              <circle r={20} fill={statusColor} opacity={0.15} />
-              <circle r={14} fill={statusColor} />
-              <g transform="translate(-9, -5)">
-                <rect x="0" y="0" width="18" height="10" rx="1" stroke="white" strokeWidth="1.3" fill="none" />
-                <line x1="4" y1="0" x2="4" y2="10" stroke="white" strokeWidth="1" />
-                <line x1="9" y1="0" x2="9" y2="10" stroke="white" strokeWidth="1" />
-                <line x1="14" y1="0" x2="14" y2="10" stroke="white" strokeWidth="1" />
+              <circle r={compact ? 14 : 20} fill={statusColor} opacity={0.15} />
+              <circle r={compact ? 10 : 14} fill={statusColor} />
+              <g transform={compact ? 'translate(-7, -4)' : 'translate(-9, -5)'}>
+                <rect
+                  x="0" y="0"
+                  width={compact ? 14 : 18}
+                  height={compact ? 8 : 10}
+                  rx="1"
+                  stroke="white"
+                  strokeWidth="1.2"
+                  fill="none"
+                />
+                <line x1={compact ? 3 : 4} y1="0" x2={compact ? 3 : 4} y2={compact ? 8 : 10} stroke="white" strokeWidth="1" />
+                <line x1={compact ? 7 : 9} y1="0" x2={compact ? 7 : 9} y2={compact ? 8 : 10} stroke="white" strokeWidth="1" />
+                <line x1={compact ? 11 : 14} y1="0" x2={compact ? 11 : 14} y2={compact ? 8 : 10} stroke="white" strokeWidth="1" />
               </g>
             </Marker>
           )}
         </ComposableMap>
 
-        {/* Status badge */}
         <div style={{
           position: 'absolute',
-          top: '14px',
-          left: '14px',
+          top: '10px',
+          left: '10px',
           background: 'white',
-          padding: '7px 11px',
-          borderRadius: '8px',
+          padding: '6px 10px',
+          borderRadius: '7px',
           border: '0.5px solid var(--border-subtle)',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
-          fontSize: '12px',
+          gap: '7px',
+          fontSize: '11px',
           fontWeight: 500,
           boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         }}>
