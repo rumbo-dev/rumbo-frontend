@@ -41,7 +41,7 @@ export default function RouteMapReal({
   operation,
   progress,
   compact = false,
-  projection = 'orthographic',
+  projection = 'equalEarth',
 }: Props) {
   const origin = PORTS[operation.originCountry || 'CN'] || [121.5, 30.3]
   const dest = PORTS[operation.destinationCountry || 'AR'] || [-58.3, -34.6]
