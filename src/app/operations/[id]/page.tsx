@@ -2,10 +2,15 @@
 
 import { useEffect, useState, ReactNode } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, MoreHorizontal, Send, Mail, FileText, AlertCircle, Check } from 'lucide-react'
-import { StatusBadge, Button, Card, Stat } from '@/components/index'
+import { ArrowLeft, MoreHorizontal, Send, Mail, FileText, AlertCircle, Check, Sparkles, Container, Anchor, MapPin, Clock, ChevronRight, Edit3, X, Activity, Calendar } from 'lucide-react'
+import { StatusBadge, Button, Card, TeamAvatar, getCountryFlag, getCountryNameES } from '@/components/index'
+import Sidebar from '@/components/Sidebar'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 interface Operation {
   id: string
@@ -14,6 +19,12 @@ interface Operation {
   status: string
   subStatus: string
   currentOwner: string
+  awaitingFor?: string | null
+  isActionRequired?: boolean
+  actionRequiredFrom?: string | null
+  actionRequiredReason?: string | null
+  isDelayed?: boolean
+  delayReason?: string | null
   originPort?: string | null
   originCountry?: string | null
   destinationPort?: string | null
@@ -25,11 +36,16 @@ interface Operation {
   clientName: string
   clientEmail?: string
   shippingLine?: string | null
+  vessel?: string | null
+  bookingNumber?: string | null
+  blNumber?: string | null
   costEstimate?: number | null
   costActual?: number | null
   eta?: string | null
+  etd?: string | null
   priority: string
   notes?: string | null
+  createdAt: string
   tasks: Task[]
   journeySteps: JourneyStep[]
   timelineEvents: TimelineEvent[]
@@ -41,23 +57,35 @@ interface Task {
   description: string
   status: string
   priority: string
+  actionType?: string
+  responsibleTeam?: string
+  responsibleParty?: string
+  emailIntent?: string
   createdByAi: boolean
   aiConfidence?: number
+  aiReasoning?: string
+  createdAt: string
 }
 
 interface JourneyStep {
   id: string
   stepNumber: number
   stepName: string
+  description?: string
   status: string
+  narrativeNote?: string | null
+  estimatedDate?: string | null
+  actualDate?: string | null
 }
 
 interface TimelineEvent {
   id: string
   title: string
-  eventType: string
-  timestamp: string
   description?: string
+  eventType: string
+  source?: string
+  sourceTeam?: string
+  timestamp: string
 }
 
 interface EmailDraft {
@@ -67,9 +95,52 @@ interface EmailDraft {
   body: string
   status: 'DRAFT' | 'APPROVED' | 'SENT' | 'REJECTED'
   aiReasoning?: string
-  sentAt?: string
+  recipientType?: string
+  intent?: string
   createdAt: string
 }
+
+// ============================================================================
+// CONFIG
+// ============================================================================
+
+// Sub-status display config: label + color
+const SUB_STATUS_CONFIG: Record<string, { label: string; bg: string; fg: string; dotColor: string }> = {
+  // QUOTING
+  NEW_QUOTE: { label: 'Nueva cotización', bg: '#EEF1F8', fg: '#1E3A7B', dotColor: '#1E3A7B' },
+  QUOTE_REQUESTED: { label: 'Cotización solicitada', bg: '#EEF1F8', fg: '#1E3A7B', dotColor: '#1E3A7B' },
+  READY_TO_QUOTE: { label: 'Lista para cotizar', bg: '#EEF1F8', fg: '#1E3A7B', dotColor: '#1E3A7B' },
+  QUOTED: { label: 'Cotizada', bg: '#FFFBEB', fg: '#854F0B', dotColor: '#EF9F27' },
+  CONFIRMED: { label: 'Confirmada', bg: '#ECFDF5', fg: '#047857', dotColor: '#047857' },
+  REJECTED: { label: 'Rechazada', bg: '#FCEBEB', fg: '#A32D2D', dotColor: '#A32D2D' },
+  // BOOKING
+  BOOKING_PENDING: { label: 'Booking pendiente', bg: '#FFF1EC', fg: '#993C1D', dotColor: '#F47A5A' },
+  BOOKING_RECEIVED: { label: 'Booking recibido', bg: '#FFF1EC', fg: '#993C1D', dotColor: '#F47A5A' },
+  BOOKING_CONFIRMED: { label: 'Booking confirmado', bg: '#ECFDF5', fg: '#047857', dotColor: '#047857' },
+  DOCS_PENDING: { label: 'Documentos pendientes', bg: '#FFFBEB', fg: '#854F0B', dotColor: '#EF9F27' },
+  DOCS_APPROVED: { label: 'Documentos aprobados', bg: '#ECFDF5', fg: '#047857', dotColor: '#047857' },
+  // IN_TRANSIT
+  ON_BOARD: { label: 'A bordo', bg: '#EEF1F8', fg: '#1E3A7B', dotColor: '#1E3A7B' },
+  DOCS_READY: { label: 'Documentos listos', bg: '#ECFDF5', fg: '#047857', dotColor: '#047857' },
+  // AT_DESTINATION
+  ARRIVED: { label: 'Arribada', bg: '#ECFDF5', fg: '#047857', dotColor: '#047857' },
+  MANIFEST_PENDING: { label: 'Manifiesto pendiente', bg: '#FFFBEB', fg: '#854F0B', dotColor: '#EF9F27' },
+  DESTINATION_PENDING: { label: 'Pendiente en destino', bg: '#FFFBEB', fg: '#854F0B', dotColor: '#EF9F27' },
+  // CLOSED
+  COMPLETED: { label: 'Completada', bg: '#F1EFE8', fg: '#5F5E5A', dotColor: '#888780' },
+}
+
+const STATUS_TO_PROGRESS: Record<string, number> = {
+  QUOTING: 0,
+  BOOKING: 0.05,
+  IN_TRANSIT: 0.5,  // dummy mid-transit; in V2 we use real tracking
+  AT_DESTINATION: 0.95,
+  CLOSED: 1.0,
+}
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 export default function OperationPage() {
   const params = useParams()
@@ -122,268 +193,672 @@ export default function OperationPage() {
     }
   }
 
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return '—'
-    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  }
-
-  const formatDateTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-  }
-
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--surface-app)', padding: '32px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-        Loading...
+      <div style={{ minHeight: '100vh', background: 'var(--surface-app)' }}>
+        <Sidebar />
+        <div style={{ marginLeft: '240px', padding: '32px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+          Cargando...
+        </div>
       </div>
     )
   }
 
   if (!operation) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--surface-app)', padding: '32px', textAlign: 'center' }}>
-        Operation not found
+      <div style={{ minHeight: '100vh', background: 'var(--surface-app)' }}>
+        <Sidebar />
+        <div style={{ marginLeft: '240px', padding: '32px', textAlign: 'center' }}>
+          Operación no encontrada
+        </div>
       </div>
     )
   }
 
+  const subStatusInfo = SUB_STATUS_CONFIG[operation.subStatus] || SUB_STATUS_CONFIG.BOOKING_PENDING
+  const progress = STATUS_TO_PROGRESS[operation.status] ?? 0.1
+
   const pendingTasks = operation.tasks.filter((t) => t.status === 'PENDING')
   const aiTasks = pendingTasks.filter((t) => t.createdByAi)
   const pendingDrafts = drafts.filter((d) => d.status === 'DRAFT')
+  const totalSuggestions = pendingDrafts.length + aiTasks.length
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--surface-app)' }}>
-      {/* Top Nav */}
-      <nav style={{ height: '56px', background: 'var(--surface-card)', borderBottom: '1px solid var(--border-default)', padding: '0 32px', display: 'flex', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '40px' }}><img src='/logo-icon.png' alt='Rumbo' style={{ height: '24px', width: 'auto' }} /><span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>Rumbo</span></div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--rumbo-navy)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600 }}>D</div>
-        </div>
-      </nav>
+      <Sidebar />
 
-      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px' }}>
-        {/* Back link */}
-        <button
-          onClick={() => router.push('/dashboard')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'transparent', border: 'none', color: 'var(--text-tertiary)', fontSize: '13px', cursor: 'pointer', padding: 0, marginBottom: '20px' }}
-        >
-          <ArrowLeft size={14} />
-          Operations
-        </button>
+      <div style={{ marginLeft: '240px' }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px 40px 48px' }}>
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <div>
-            <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, lineHeight: '32px' }}>
-              {operation.operationCode}
-            </h1>
-            <div style={{ fontSize: '14px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-              {operation.clientName} <span style={{ color: 'var(--text-quaternary)', margin: '0 6px' }}>·</span> Container {operation.containerNumber}
-            </div>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-tertiary)', marginBottom: '16px' }}>
+            <button
+              onClick={() => router.push('/dashboard')}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', padding: 0, fontSize: '13px' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-tertiary)')}
+            >
+              Operaciones
+            </button>
+            <ChevronRight size={12} />
+            <span style={{ color: 'var(--text-primary)' }}>{operation.operationCode}</span>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <Button variant="secondary" size="sm">Edit</Button>
-            <Button variant="secondary" size="sm">
-              <MoreHorizontal size={14} />
-            </Button>
-          </div>
-        </div>
 
-        {/* Badges row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
-          <StatusBadge status={operation.status} />
-          <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', padding: '0 8px', height: '22px', display: 'inline-flex', alignItems: 'center', borderRadius: '6px', background: 'var(--surface-muted)' }}>
-            {operation.incoterm} / {operation.mode || 'FCL'}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', height: '22px', display: 'inline-flex', alignItems: 'center' }}>
-            Priority: <span style={{ color: 'var(--text-primary)', fontWeight: 500, marginLeft: '4px' }}>{operation.priority}</span>
-          </div>
-        </div>
+          {/* ============ HERO ============ */}
+          <HeroSection operation={operation} subStatusInfo={subStatusInfo} progress={progress} />
 
-        {/* Stat strip */}
-        <Card>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '32px' }}>
-            <Stat
-              label="Route"
-              value={`${operation.originPort?.split(',')[0] || 'TBD'} → ${operation.destinationPort?.split(',')[0] || 'TBD'}`}
-              subtext={`${operation.shippingLine}`}
-            />
-            <Stat
-              label="ETA"
-              value={formatDate(operation.eta)}
-              subtext={operation.eta ? getRelativeDate(operation.eta) : 'Not scheduled'}
-            />
-            <Stat
-              label="Cost"             
-              value={`${operation.costEstimate ? `$${operation.costEstimate.toLocaleString()}` : 'N/A'}`}
-              subtext={operation.costActual ? `Actual: $${operation.costActual.toLocaleString()}` : 'Estimate'}
-            />
-            <Stat
-              label="Weight"
-              value={`${operation.weightKg ? `${operation.weightKg.toLocaleString()} kg` : 'N/A'}`}
-              subtext={operation.cbm ? `${operation.cbm} CBM` : undefined}
-            />
-          </div>
-        </Card>
+          {/* ============ AI SUGGESTIONS PREVIEW ============ */}
+          {totalSuggestions > 0 && (
+            <SuggestionsPreview count={totalSuggestions} />
+          )}
 
-        {/* Two-column section */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '16px', marginTop: '16px' }}>
-          {/* AI Suggestions (left) */}
-          <Card padding={false}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <h2 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>AI suggestions</h2>
-                <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', margin: '2px 0 0 0' }}>
-                  {pendingDrafts.length + aiTasks.length} pending review
-                </p>
-              </div>
-            </div>
+          {/* ============ TWO-COLUMN GRID ============ */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '20px', marginTop: '20px' }}>
 
-            {pendingDrafts.length === 0 && aiTasks.length === 0 ? (
-              <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-                <Mail size={28} style={{ color: 'var(--text-quaternary)', margin: '0 auto 12px' }} />
-                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>No suggestions yet</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                  AI will analyze incoming emails and suggest actions
-                </div>
-              </div>
-            ) : (
-              <div>
-                {pendingDrafts.map((draft) => (
-                  <DraftItem key={draft.id} draft={draft} onApprove={() => handleApprove(draft.id)} />
-                ))}
-                {aiTasks.map((task) => (
-                  <TaskItem key={task.id} task={task} />
-                ))}
-              </div>
-            )}
-          </Card>
+            {/* LEFT COLUMN */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-          {/* Right column: Journey + Tasks */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <Card padding={false}>
-              <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
-                <h2 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Journey</h2>
-              </div>
-              <div style={{ padding: '20px 24px' }}>
-                {operation.journeySteps.map((step, idx) => (
-                  <JourneyRow key={step.id} step={step} isLast={idx === operation.journeySteps.length - 1} />
-                ))}
-              </div>
-            </Card>
-
-            <Card padding={false}>
-              <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
-                <h2 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Tasks</h2>
-                <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', margin: '2px 0 0 0' }}>
-                  {pendingTasks.length} pending
-                </p>
-              </div>
-              <div>
-                {operation.tasks.length === 0 ? (
-                  <div style={{ padding: '32px', textAlign: 'center', fontSize: '13px', color: 'var(--text-tertiary)' }}>
-                    No tasks
-                  </div>
+              {/* AI Suggestions full section */}
+              <SectionCard
+                title="Sugerencias de Rumbo"
+                subtitle={`${totalSuggestions} ${totalSuggestions === 1 ? 'lista para revisar' : 'listas para revisar'}`}
+                icon={<Sparkles size={15} strokeWidth={1.8} />}
+                iconBg="linear-gradient(135deg, var(--rumbo-navy), var(--rumbo-coral))"
+                iconColor="white"
+              >
+                {totalSuggestions === 0 ? (
+                  <EmptyStateInline
+                    icon={<Sparkles size={24} strokeWidth={1.5} style={{ color: 'var(--text-quaternary)' }} />}
+                    title="Sin sugerencias por ahora"
+                    description="Cuando llegue un email nuevo, Rumbo lo analizará y propondrá acciones acá."
+                  />
                 ) : (
-                  operation.tasks.slice(0, 5).map((task) => (
-                    <div key={task.id} style={{ padding: '14px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>{task.title}</div>
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px' }}>
-                        <StatusBadge status={task.status} />
-                      </div>
-                    </div>
-                  ))
+                  <div>
+                    {pendingDrafts.map((draft) => (
+                      <DraftItem key={draft.id} draft={draft} onApprove={() => handleApprove(draft.id)} />
+                    ))}
+                    {aiTasks.map((task) => (
+                      <TaskSuggestionItem key={task.id} task={task} />
+                    ))}
+                  </div>
                 )}
-              </div>
-            </Card>
-          </div>
-        </div>
+              </SectionCard>
 
-        {/* Activity */}
-        <div style={{ marginTop: '32px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 12px 0' }}>Activity</h2>
-          <Card padding={false}>
-            {operation.timelineEvents.length === 0 ? (
-              <div style={{ padding: '32px', textAlign: 'center', fontSize: '13px', color: 'var(--text-tertiary)' }}>
-                No activity yet
-              </div>
-            ) : (
-              operation.timelineEvents.slice(0, 10).map((event, idx) => (
-                <div
-                  key={event.id}
-                  style={{
-                    display: 'flex',
-                    gap: '16px',
-                    padding: '14px 24px',
-                    borderBottom: idx < Math.min(operation.timelineEvents.length, 10) - 1 ? '1px solid var(--border-subtle)' : 'none',
-                  }}
-                >
-                  <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', width: '120px', flexShrink: 0, paddingTop: '1px' }}>
-                    {formatDateTime(event.timestamp)}
+              {/* Timeline */}
+              <SectionCard
+                title="Historial"
+                subtitle="Eventos clave de la operación"
+                icon={<Activity size={15} strokeWidth={1.8} />}
+                iconBg="var(--surface-muted)"
+                iconColor="var(--text-secondary)"
+              >
+                {operation.timelineEvents.length === 0 ? (
+                  <EmptyStateInline
+                    icon={<Activity size={24} strokeWidth={1.5} style={{ color: 'var(--text-quaternary)' }} />}
+                    title="Sin actividad aún"
+                    description="Los eventos de la operación aparecerán acá a medida que sucedan."
+                  />
+                ) : (
+                  <TimelineNarrative events={operation.timelineEvents} journeySteps={operation.journeySteps} />
+                )}
+              </SectionCard>
+
+            </div>
+
+            {/* RIGHT COLUMN */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+              {/* Documents */}
+              <SectionCard
+                title="Documentos"
+                subtitle="BL, factura, packing list"
+                icon={<FileText size={15} strokeWidth={1.8} />}
+                iconBg="var(--surface-muted)"
+                iconColor="var(--text-secondary)"
+              >
+                <DocumentsList />
+              </SectionCard>
+
+              {/* Recent Emails */}
+              <SectionCard
+                title="Emails recibidos"
+                subtitle="Conversaciones de la operación"
+                icon={<Mail size={15} strokeWidth={1.8} />}
+                iconBg="var(--surface-muted)"
+                iconColor="var(--text-secondary)"
+              >
+                <EmailsList />
+              </SectionCard>
+
+              {/* Tasks */}
+              <SectionCard
+                title="Tareas"
+                subtitle={`${pendingTasks.length} pendientes`}
+                icon={<Check size={15} strokeWidth={1.8} />}
+                iconBg="var(--surface-muted)"
+                iconColor="var(--text-secondary)"
+              >
+                {operation.tasks.length === 0 ? (
+                  <EmptyStateInline
+                    icon={<Check size={24} strokeWidth={1.5} style={{ color: 'var(--text-quaternary)' }} />}
+                    title="Sin tareas"
+                    description="Las tareas de la operación se listarán acá."
+                  />
+                ) : (
+                  <div>
+                    {operation.tasks.slice(0, 6).map((task) => (
+                      <TaskRow key={task.id} task={task} />
+                    ))}
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{event.title}</div>
-                    {event.description && (
-                      <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{event.description}</div>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </Card>
+                )}
+              </SectionCard>
+
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
   )
 }
 
+// ============================================================================
+// HERO SECTION
+// ============================================================================
+
+function HeroSection({ operation, subStatusInfo, progress }: { operation: Operation; subStatusInfo: any; progress: number }) {
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, var(--surface-card) 0%, #FAFAF7 100%)',
+      border: '1px solid var(--border-default)',
+      borderRadius: '16px',
+      padding: '28px 32px',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* Top row: title + identity + actions */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px', gap: '16px', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
+            <h1 style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+              {operation.operationCode}
+            </h1>
+            {/* Status pill */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '4px 10px',
+              background: subStatusInfo.bg,
+              borderRadius: '6px',
+            }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: subStatusInfo.dotColor }} />
+              <span style={{ fontSize: '12px', fontWeight: 500, color: subStatusInfo.fg }}>
+                {subStatusInfo.label}
+              </span>
+            </div>
+            {/* Owner */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: 'var(--surface-muted)', borderRadius: '6px' }}>
+              <TeamAvatar team={operation.currentOwner} size="sm" />
+              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                {getTeamLabel(operation.currentOwner)}
+              </span>
+            </div>
+            {/* Delayed flag */}
+            {operation.isDelayed && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: '#FCEBEB', borderRadius: '6px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: '#A32D2D' }}>Demorada</span>
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 500 }}>{operation.clientName}</span>
+            <span style={{ color: 'var(--text-quaternary)' }}>·</span>
+            <span>{operation.mode || 'FCL'}</span>
+            {operation.incoterm && (
+              <>
+                <span style={{ color: 'var(--text-quaternary)' }}>·</span>
+                <span>{operation.incoterm}</span>
+              </>
+            )}
+            <span style={{ color: 'var(--text-quaternary)' }}>·</span>
+            <span style={{ color: 'var(--text-tertiary)' }}>Creada {formatShortDate(operation.createdAt)}</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <Button variant="secondary" size="sm">
+            <Edit3 size={13} />
+            Editar
+          </Button>
+          <Button size="sm">
+            <Send size={13} />
+            Acciones
+          </Button>
+        </div>
+      </div>
+
+      {/* ROUTE MAP */}
+      <RouteMap operation={operation} progress={progress} />
+
+      {/* Key data strip */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(5, 1fr)',
+        gap: '24px',
+        marginTop: '20px',
+        padding: '16px 20px',
+        background: 'var(--surface-card)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: '10px',
+      }}>
+        <DataPoint label="Carrier" value={operation.shippingLine || '—'} />
+        <DataPoint label="Vessel" value={operation.vessel || '—'} />
+        <DataPoint label="Container" value={operation.containerNumber || '—'} mono />
+        <DataPoint label="BL" value={operation.blNumber || '—'} mono />
+        <DataPoint label="Peso · Vol" value={operation.weightKg ? `${operation.weightKg.toLocaleString()} kg${operation.cbm ? ` · ${operation.cbm} m³` : ''}` : '—'} />
+      </div>
+    </div>
+  )
+}
+
+function DataPoint({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: '10.5px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', fontWeight: 500 }}>
+        {label}
+      </div>
+      <div style={{
+        fontSize: '14px',
+        fontWeight: 500,
+        color: 'var(--text-primary)',
+        fontFamily: mono ? 'ui-monospace, "SF Mono", Menlo, monospace' : 'inherit',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}>
+        {value}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// ROUTE MAP — SVG world map with route arc
+// ============================================================================
+
+function RouteMap({ operation, progress }: { operation: Operation; progress: number }) {
+  // Approximate world map coordinates for ports (lon/lat → SVG x/y)
+  // SVG viewBox: 0 0 1200 380 — equirectangular projection
+  const portCoords: Record<string, { x: number; y: number; name: string; flag: string }> = {
+    CN: { x: 1010, y: 130, name: operation.originPort || 'Origen', flag: '🇨🇳' },
+    AR: { x: 250, y: 235, name: operation.destinationPort || 'Destino', flag: '🇦🇷' },
+    BR: { x: 290, y: 195, name: operation.destinationPort || 'Destino', flag: '🇧🇷' },
+    CL: { x: 230, y: 245, name: operation.destinationPort || 'Destino', flag: '🇨🇱' },
+    PE: { x: 235, y: 215, name: operation.destinationPort || 'Destino', flag: '🇵🇪' },
+    UY: { x: 270, y: 240, name: operation.destinationPort || 'Destino', flag: '🇺🇾' },
+    US: { x: 200, y: 130, name: operation.originPort || 'Origen', flag: '🇺🇸' },
+    DE: { x: 600, y: 95, name: operation.originPort || 'Origen', flag: '🇩🇪' },
+    NL: { x: 590, y: 90, name: operation.originPort || 'Origen', flag: '🇳🇱' },
+    ES: { x: 560, y: 130, name: operation.originPort || 'Origen', flag: '🇪🇸' },
+    IT: { x: 605, y: 125, name: operation.originPort || 'Origen', flag: '🇮🇹' },
+    JP: { x: 1080, y: 135, name: operation.originPort || 'Origen', flag: '🇯🇵' },
+    KR: { x: 1050, y: 130, name: operation.originPort || 'Origen', flag: '🇰🇷' },
+    IN: { x: 850, y: 175, name: operation.originPort || 'Origen', flag: '🇮🇳' },
+    AE: { x: 750, y: 165, name: operation.originPort || 'Origen', flag: '🇦🇪' },
+    TR: { x: 660, y: 130, name: operation.originPort || 'Origen', flag: '🇹🇷' },
+  }
+
+  const origin = portCoords[operation.originCountry || ''] || { x: 1010, y: 130, name: operation.originPort || 'Origen', flag: '🌏' }
+  const destination = portCoords[operation.destinationCountry || 'AR'] || { x: 250, y: 235, name: operation.destinationPort || 'Destino', flag: '🇦🇷' }
+
+  // Quadratic curve control point — bows the route to look like a maritime arc
+  const midX = (origin.x + destination.x) / 2
+  const midY = Math.max(origin.y, destination.y) + 80  // bow southward
+
+  // Calculate container position along the curve based on progress
+  const t = progress
+  const containerX = (1 - t) * (1 - t) * origin.x + 2 * (1 - t) * t * midX + t * t * destination.x
+  const containerY = (1 - t) * (1 - t) * origin.y + 2 * (1 - t) * t * midY + t * t * destination.y
+
+  // Status text
+  const statusText = (() => {
+    if (operation.status === 'QUOTING') return 'Pendiente de cotización'
+    if (operation.status === 'BOOKING') return 'En proceso de booking'
+    if (operation.status === 'IN_TRANSIT') return 'En tránsito'
+    if (operation.status === 'AT_DESTINATION') return 'En destino'
+    if (operation.status === 'CLOSED') return 'Operación finalizada'
+    return ''
+  })()
+
+  const statusColor = operation.status === 'CLOSED' ? '#888780' : operation.status === 'IN_TRANSIT' ? '#1E3A7B' : '#F47A5A'
+
+  return (
+    <div style={{
+      background: 'var(--surface-card)',
+      border: '1px solid var(--border-subtle)',
+      borderRadius: '12px',
+      overflow: 'hidden',
+    }}>
+      <div style={{ position: 'relative', height: '320px', background: '#EAF1F8' }}>
+        <svg viewBox="0 0 1200 380" preserveAspectRatio="xMidYMid slice" style={{ width: '100%', height: '100%', display: 'block' }}>
+          <defs>
+            <radialGradient id="oceanGrad" cx="50%" cy="50%" r="60%">
+              <stop offset="0%" stopColor="#F0F7FD" />
+              <stop offset="100%" stopColor="#DCE8F2" />
+            </radialGradient>
+          </defs>
+
+          <rect x="0" y="0" width="1200" height="380" fill="url(#oceanGrad)" />
+
+          {/* Continent silhouettes */}
+          <path d="M 920 60 Q 1000 50 1080 80 Q 1140 100 1180 130 L 1200 140 L 1200 220 Q 1140 230 1090 245 Q 1040 260 990 250 Q 940 245 920 220 Q 900 180 910 120 Q 915 80 920 60 Z" fill="#F4F1E8" stroke="#E0DCCF" strokeWidth="0.5" />
+          <path d="M 540 100 Q 580 95 620 115 Q 650 135 660 175 Q 670 215 650 250 Q 620 290 590 295 Q 555 290 530 260 Q 510 230 515 190 Q 525 145 540 100 Z" fill="#F4F1E8" stroke="#E0DCCF" strokeWidth="0.5" />
+          <path d="M 220 180 Q 260 175 290 200 Q 310 230 305 270 Q 295 310 270 335 Q 240 350 215 340 Q 195 320 200 285 Q 205 240 220 180 Z" fill="#F4F1E8" stroke="#E0DCCF" strokeWidth="0.5" />
+          <path d="M 990 270 Q 1030 265 1060 280 Q 1080 295 1075 315 Q 1060 330 1030 330 Q 1000 325 985 310 Q 980 290 990 270 Z" fill="#F4F1E8" stroke="#E0DCCF" strokeWidth="0.5" />
+          {/* North America simplified */}
+          <path d="M 80 80 Q 130 70 180 90 Q 220 110 240 140 Q 245 170 220 175 Q 180 175 130 165 Q 95 155 70 130 Q 60 105 80 80 Z" fill="#F4F1E8" stroke="#E0DCCF" strokeWidth="0.5" />
+          {/* Europe blob */}
+          <path d="M 540 70 Q 600 65 650 80 Q 690 95 700 120 Q 695 140 660 145 Q 600 145 550 135 Q 525 120 530 95 Q 535 80 540 70 Z" fill="#F4F1E8" stroke="#E0DCCF" strokeWidth="0.5" />
+
+          {/* Route: traveled portion (solid navy) */}
+          <path
+            d={`M ${origin.x} ${origin.y} Q ${midX} ${midY} ${destination.x} ${destination.y}`}
+            stroke="#B4B2A9"
+            strokeWidth="2.5"
+            fill="none"
+            strokeDasharray="6 6"
+            opacity="0.7"
+            strokeLinecap="round"
+          />
+          {/* Solid traveled portion is approximated by drawing a sub-path up to the container */}
+          {progress > 0.02 && (
+            <path
+              d={`M ${origin.x} ${origin.y} Q ${(origin.x + containerX) / 2 + (midX - (origin.x + destination.x) / 2) * progress * 0.5} ${(origin.y + containerY) / 2 + (midY - (origin.y + destination.y) / 2) * progress * 0.5} ${containerX} ${containerY}`}
+              stroke="#1E3A7B"
+              strokeWidth="3"
+              fill="none"
+              strokeLinecap="round"
+            />
+          )}
+
+          {/* Origin dot */}
+          <circle cx={origin.x} cy={origin.y} r="10" fill="white" stroke="#1E3A7B" strokeWidth="3" />
+          <circle cx={origin.x} cy={origin.y} r="4" fill="#1E3A7B" />
+
+          {/* Origin label */}
+          <g transform={`translate(${origin.x}, ${origin.y - 22})`}>
+            <rect x="-50" y="-16" width="100" height="22" rx="11" fill="white" stroke="#E8E6E1" strokeWidth="0.5" />
+            <text x="0" y="0" fontFamily="-apple-system, sans-serif" fontSize="11" fontWeight="600" fill="#1A1A1A" textAnchor="middle">
+              {origin.flag} {truncate(origin.name, 12)}
+            </text>
+          </g>
+
+          {/* Destination dot */}
+          <circle cx={destination.x} cy={destination.y} r="10" fill="white" stroke={progress >= 0.99 ? '#047857' : '#B4B2A9'} strokeWidth="2" strokeDasharray={progress >= 0.99 ? '0' : '3 2'} />
+          <circle cx={destination.x} cy={destination.y} r="4" fill={progress >= 0.99 ? '#047857' : '#B4B2A9'} />
+
+          {/* Destination label */}
+          <g transform={`translate(${destination.x}, ${destination.y - 22})`}>
+            <rect x="-65" y="-16" width="130" height="22" rx="11" fill="white" stroke="#E8E6E1" strokeWidth="0.5" />
+            <text x="0" y="0" fontFamily="-apple-system, sans-serif" fontSize="11" fontWeight="600" fill="#1A1A1A" textAnchor="middle">
+              {destination.flag} {truncate(destination.name, 14)}
+            </text>
+          </g>
+
+          {/* Container icon at current position (only if in transit-ish) */}
+          {operation.status !== 'QUOTING' && operation.status !== 'CLOSED' && (
+            <>
+              <circle cx={containerX} cy={containerY} r="22" fill="#1E3A7B" opacity="0.15" />
+              <circle cx={containerX} cy={containerY} r="16" fill="#1E3A7B" />
+              <g transform={`translate(${containerX - 9}, ${containerY - 5})`}>
+                <rect x="0" y="0" width="18" height="10" rx="1" stroke="white" strokeWidth="1.5" fill="none" />
+                <line x1="4" y1="0" x2="4" y2="10" stroke="white" strokeWidth="1" />
+                <line x1="9" y1="0" x2="9" y2="10" stroke="white" strokeWidth="1" />
+                <line x1="14" y1="0" x2="14" y2="10" stroke="white" strokeWidth="1" />
+              </g>
+            </>
+          )}
+        </svg>
+
+        {/* Top-left status badge */}
+        <div style={{
+          position: 'absolute',
+          top: '14px',
+          left: '14px',
+          background: 'white',
+          padding: '7px 11px',
+          borderRadius: '8px',
+          border: '0.5px solid var(--border-subtle)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '12px',
+          fontWeight: 500,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        }}>
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: statusColor }} />
+          <span style={{ color: 'var(--text-primary)' }}>{statusText}</span>
+        </div>
+      </div>
+
+      {/* Bottom strip: route metrics */}
+      <RouteMetrics operation={operation} progress={progress} />
+    </div>
+  )
+}
+
+function RouteMetrics({ operation, progress }: { operation: Operation; progress: number }) {
+  const etaInfo = getETAInfo(operation.eta)
+  const etdInfo = getETAInfo(operation.etd)
+
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(4, 1fr)',
+      padding: '14px 20px',
+      gap: '24px',
+      borderTop: '1px solid var(--border-subtle)',
+      background: '#FAFAF7',
+    }}>
+      <SmallMetric label="ETD" value={etdInfo.primary} secondary={etdInfo.secondary} />
+      <SmallMetric label="ETA" value={etaInfo.primary} secondary={etaInfo.secondary} highlight={!operation.isDelayed && etaInfo.primary !== '—'} />
+      <SmallMetric label="Progreso" value={`${Math.round(progress * 100)}%`} secondary={progress < 1 ? 'En curso' : 'Completado'} />
+      <SmallMetric label="Booking" value={operation.bookingNumber || '—'} mono />
+    </div>
+  )
+}
+
+function SmallMetric({ label, value, secondary, mono, highlight }: { label: string; value: string; secondary?: string; mono?: boolean; highlight?: boolean }) {
+  return (
+    <div>
+      <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px', fontWeight: 500 }}>
+        {label}
+      </div>
+      <div style={{
+        fontSize: '13px',
+        fontWeight: 600,
+        color: highlight ? 'var(--rumbo-coral)' : 'var(--text-primary)',
+        fontFamily: mono ? 'ui-monospace, monospace' : 'inherit',
+      }}>
+        {value}
+      </div>
+      {secondary && (
+        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+          {secondary}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
+// SUGGESTIONS PREVIEW
+// ============================================================================
+
+function SuggestionsPreview({ count }: { count: number }) {
+  return (
+    <div style={{
+      marginTop: '16px',
+      background: 'var(--surface-card)',
+      border: '1px solid var(--border-default)',
+      borderRadius: '12px',
+      padding: '14px 18px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '14px',
+      cursor: 'pointer',
+      transition: 'all 150ms ease',
+    }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
+      onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-card)')}
+    >
+      <div style={{
+        width: '36px',
+        height: '36px',
+        background: 'linear-gradient(135deg, var(--rumbo-navy), var(--rumbo-coral))',
+        borderRadius: '10px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}>
+        <Sparkles size={18} strokeWidth={2} style={{ color: 'white' }} />
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>
+          Sugerencias de Rumbo · {count} {count === 1 ? 'lista' : 'listas'} para revisar
+        </div>
+        <div style={{ fontSize: '13.5px', color: 'var(--text-primary)' }}>
+          Bajá hasta &quot;Sugerencias&quot; para aprobarlas o ajustarlas
+        </div>
+      </div>
+      <ChevronRight size={18} style={{ color: 'var(--text-tertiary)' }} />
+    </div>
+  )
+}
+
+// ============================================================================
+// SECTION CARD
+// ============================================================================
+
+function SectionCard({ title, subtitle, icon, iconBg, iconColor, children }: { title: string; subtitle?: string; icon: ReactNode; iconBg: string; iconColor: string; children: ReactNode }) {
+  return (
+    <div style={{
+      background: 'var(--surface-card)',
+      border: '1px solid var(--border-default)',
+      borderRadius: '12px',
+      overflow: 'hidden',
+    }}>
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{
+          width: '28px',
+          height: '28px',
+          background: iconBg,
+          color: iconColor,
+          borderRadius: '7px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          {icon}
+        </div>
+        <div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{title}</div>
+          {subtitle && <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '1px' }}>{subtitle}</div>}
+        </div>
+      </div>
+      <div>{children}</div>
+    </div>
+  )
+}
+
+function EmptyStateInline({ icon, title, description }: { icon: ReactNode; title: string; description: string }) {
+  return (
+    <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+      <div style={{ marginBottom: '10px', display: 'inline-flex' }}>{icon}</div>
+      <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '4px' }}>{title}</div>
+      <div style={{ fontSize: '12.5px', color: 'var(--text-tertiary)', maxWidth: '280px', margin: '0 auto', lineHeight: '18px' }}>{description}</div>
+    </div>
+  )
+}
+
+// ============================================================================
+// SUGGESTION ITEMS
+// ============================================================================
+
 function DraftItem({ draft, onApprove }: { draft: EmailDraft; onApprove: () => void }) {
   const [expanded, setExpanded] = useState(false)
   return (
-    <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
+    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-        <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'var(--rumbo-coral-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Mail size={14} style={{ color: 'var(--rumbo-coral)' }} />
+        <div style={{
+          width: '28px',
+          height: '28px',
+          borderRadius: '7px',
+          background: 'var(--rumbo-coral-soft)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <Mail size={13} style={{ color: 'var(--rumbo-coral)' }} strokeWidth={2} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
-            Email draft
+          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '3px' }}>
+            Borrador de email
           </div>
           <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '2px' }}>
             {draft.subject}
           </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginBottom: '8px' }}>
-            To: {draft.to}
+          <div style={{ fontSize: '12.5px', color: 'var(--text-tertiary)', marginBottom: '10px' }}>
+            Para: {draft.to || <em style={{ color: 'var(--rumbo-coral)' }}>Falta destinatario</em>}
           </div>
           <div
             onClick={() => setExpanded(!expanded)}
             style={{
               fontSize: '13px',
               color: 'var(--text-secondary)',
-              padding: '10px 12px',
+              padding: '12px 14px',
               background: 'var(--surface-app)',
-              borderRadius: '6px',
+              borderRadius: '8px',
               cursor: 'pointer',
-              maxHeight: expanded ? 'none' : '60px',
+              maxHeight: expanded ? 'none' : '72px',
               overflow: 'hidden',
               whiteSpace: 'pre-wrap',
               lineHeight: '20px',
               border: '1px solid var(--border-subtle)',
+              position: 'relative',
             }}
           >
             {draft.body}
           </div>
           {draft.body.length > 150 && (
             <button onClick={() => setExpanded(!expanded)} style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', fontSize: '12px', cursor: 'pointer', padding: '4px 0', marginTop: '4px' }}>
-              {expanded ? 'Show less' : 'Show more'}
+              {expanded ? 'Ver menos' : 'Ver más'}
             </button>
           )}
           <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-            <Button variant="secondary" size="sm">Reject</Button>
-            <Button size="sm" onClick={onApprove}>
-              <Send size={13} />
-              Approve & send
+            <Button variant="secondary" size="sm">
+              <Edit3 size={12} />
+              Editar
             </Button>
+            <Button size="sm" onClick={onApprove}>
+              <Send size={12} />
+              Aprobar y enviar
+            </Button>
+            <button style={{
+              height: '28px',
+              padding: '0 10px',
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-tertiary)',
+              fontSize: '12px',
+              cursor: 'pointer',
+              borderRadius: '6px',
+            }}>
+              Descartar
+            </button>
           </div>
         </div>
       </div>
@@ -391,29 +866,57 @@ function DraftItem({ draft, onApprove }: { draft: EmailDraft; onApprove: () => v
   )
 }
 
-function TaskItem({ task }: { task: Task }) {
+function TaskSuggestionItem({ task }: { task: Task }) {
+  const priorityColor = task.priority === 'HIGH' || task.priority === 'CRITICAL' ? '#A32D2D' : task.priority === 'LOW' ? '#5F5E5A' : '#854F0B'
+  const priorityBg = task.priority === 'HIGH' || task.priority === 'CRITICAL' ? '#FCEBEB' : task.priority === 'LOW' ? '#F1EFE8' : '#FFFBEB'
+
   return (
-    <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
+    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-        <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'var(--warning-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <AlertCircle size={14} style={{ color: 'var(--warning-fg)' }} />
+        <div style={{
+          width: '28px',
+          height: '28px',
+          borderRadius: '7px',
+          background: priorityBg,
+          color: priorityColor,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <AlertCircle size={13} strokeWidth={2} />
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
-            Suggested task · {task.priority}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Tarea sugerida
+            </span>
+            {task.priority && (
+              <span style={{ fontSize: '10px', fontWeight: 600, color: priorityColor, background: priorityBg, padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {priorityLabel(task.priority)}
+              </span>
+            )}
           </div>
-          <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>{task.title}</div>
-          <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>{task.description}</div>
-          {task.aiConfidence && (
-            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '8px' }}>
-              AI · {Math.round(task.aiConfidence * 100)}% confidence
+          <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '4px' }}>
+            {task.title}
+          </div>
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '19px', marginBottom: '8px' }}>
+            {task.description}
+          </div>
+          {task.aiConfidence !== undefined && (
+            <div style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Sparkles size={11} strokeWidth={1.8} />
+              <span>Rumbo · {Math.round(task.aiConfidence * 100)}% de confianza</span>
             </div>
           )}
-          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-            <Button variant="secondary" size="sm">Dismiss</Button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Button variant="secondary" size="sm">
+              <X size={12} />
+              Descartar
+            </Button>
             <Button size="sm">
-              <Check size={13} />
-              Accept
+              <Check size={12} />
+              Aceptar
             </Button>
           </div>
         </div>
@@ -422,32 +925,211 @@ function TaskItem({ task }: { task: Task }) {
   )
 }
 
-function JourneyRow({ step, isLast }: { step: JourneyStep; isLast: boolean }) {
-  const isCompleted = step.status === 'COMPLETED'
-  const isCurrent = step.status === 'CURRENT' || step.status === 'IN_PROGRESS'
-  const dotColor = isCompleted ? 'var(--success-dot)' : isCurrent ? 'var(--info-dot)' : 'var(--border-strong)'
-  const labelColor = isCompleted || isCurrent ? 'var(--text-primary)' : 'var(--text-tertiary)'
+// ============================================================================
+// TIMELINE NARRATIVE
+// ============================================================================
+
+function TimelineNarrative({ events, journeySteps }: { events: TimelineEvent[]; journeySteps: JourneyStep[] }) {
+  // Combine events + journey steps with narrative notes into one chronological feed
+  const items = [
+    ...events.map((e) => ({
+      id: e.id,
+      timestamp: e.timestamp,
+      title: e.title,
+      description: e.description,
+      type: 'event' as const,
+      eventType: e.eventType,
+      sourceTeam: e.sourceTeam,
+    })),
+    ...journeySteps
+      .filter((s) => s.narrativeNote)
+      .map((s) => ({
+        id: `js-${s.id}`,
+        timestamp: s.actualDate || s.completedAt || new Date().toISOString(),
+        title: s.stepName,
+        description: s.narrativeNote || '',
+        type: 'step' as const,
+        eventType: 'STEP_COMPLETED',
+        sourceTeam: undefined,
+      })),
+  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative', paddingBottom: isLast ? 0 : '14px' }}>
-      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-        {!isLast && <div style={{ position: 'absolute', top: '8px', width: '1px', height: '20px', background: 'var(--border-default)' }} />}
-      </div>
-      <div style={{ flex: 1, fontSize: '13px', fontWeight: isCurrent ? 500 : 400, color: labelColor }}>
-        {step.stepName}
-      </div>
-      {isCompleted && <span style={{ fontSize: '11px', color: 'var(--success-fg)', fontWeight: 500 }}>Done</span>}
-      {isCurrent && <span style={{ fontSize: '11px', color: 'var(--info-fg)', fontWeight: 500 }}>Active</span>}
+    <div style={{ padding: '4px 0' }}>
+      {items.map((item, idx) => (
+        <div key={item.id} style={{ display: 'flex', gap: '14px', padding: '14px 20px', position: 'relative' }}>
+          {/* Vertical line */}
+          {idx < items.length - 1 && (
+            <div style={{
+              position: 'absolute',
+              left: '32px',
+              top: '32px',
+              bottom: '-14px',
+              width: '1px',
+              background: 'var(--border-default)',
+            }} />
+          )}
+          {/* Dot */}
+          <div style={{
+            width: '10px',
+            height: '10px',
+            borderRadius: '50%',
+            background: getEventColor(item.eventType),
+            border: '2px solid var(--surface-card)',
+            boxShadow: '0 0 0 1px var(--border-default)',
+            flexShrink: 0,
+            marginTop: '5px',
+            marginLeft: '12px',
+          }} />
+          {/* Content */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '2px' }}>
+              {item.title}
+            </div>
+            {item.description && (
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '19px', marginBottom: '4px' }}>
+                {item.description}
+              </div>
+            )}
+            <div style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>{formatDateTime(item.timestamp)}</span>
+              {item.sourceTeam && (
+                <>
+                  <span>·</span>
+                  <span>{getTeamLabel(item.sourceTeam)}</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
 
-function getRelativeDate(dateStr: string): string {
+// ============================================================================
+// DOCUMENTS LIST (placeholder for now)
+// ============================================================================
+
+function DocumentsList() {
+  return (
+    <EmptyStateInline
+      icon={<FileText size={24} strokeWidth={1.5} style={{ color: 'var(--text-quaternary)' }} />}
+      title="Sin documentos aún"
+      description="BL, factura comercial y packing list aparecerán acá cuando lleguen."
+    />
+  )
+}
+
+// ============================================================================
+// EMAILS LIST (placeholder for now)
+// ============================================================================
+
+function EmailsList() {
+  return (
+    <EmptyStateInline
+      icon={<Mail size={24} strokeWidth={1.5} style={{ color: 'var(--text-quaternary)' }} />}
+      title="Sin emails registrados"
+      description="Los emails entrantes y salientes de esta operación aparecerán acá."
+    />
+  )
+}
+
+// ============================================================================
+// TASK ROW (compact)
+// ============================================================================
+
+function TaskRow({ task }: { task: Task }) {
+  const isPending = task.status === 'PENDING'
+  const isDone = task.status === 'COMPLETED'
+
+  return (
+    <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+      <div style={{
+        width: '16px',
+        height: '16px',
+        borderRadius: '4px',
+        border: `1.5px solid ${isDone ? 'var(--success-fg)' : 'var(--border-strong)'}`,
+        background: isDone ? 'var(--success-fg)' : 'transparent',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        marginTop: '2px',
+        cursor: 'pointer',
+      }}>
+        {isDone && <Check size={11} strokeWidth={3} style={{ color: 'white' }} />}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: '13px',
+          fontWeight: 500,
+          color: isDone ? 'var(--text-tertiary)' : 'var(--text-primary)',
+          textDecoration: isDone ? 'line-through' : 'none',
+          marginBottom: '2px',
+        }}>
+          {task.title}
+        </div>
+        {task.responsibleParty && (
+          <div style={{ fontSize: '11.5px', color: 'var(--text-tertiary)' }}>
+            {task.responsibleParty}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+function formatShortDate(dateStr: string): string {
+  if (!dateStr) return '—'
+  return new Date(dateStr).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+}
+
+function formatDateTime(dateStr: string): string {
+  if (!dateStr) return '—'
+  return new Date(dateStr).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+function getETAInfo(dateStr?: string | null): { primary: string; secondary?: string } {
+  if (!dateStr) return { primary: '—' }
   const date = new Date(dateStr)
   const now = new Date()
   const diffDays = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-  if (diffDays < 0) return `${Math.abs(diffDays)} days ago`
-  if (diffDays === 0) return 'today'
-  return `in ${diffDays} days`
+  const formatted = date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+  if (diffDays < 0) return { primary: formatted, secondary: `hace ${Math.abs(diffDays)} días` }
+  if (diffDays === 0) return { primary: formatted, secondary: 'hoy' }
+  return { primary: formatted, secondary: `en ${diffDays} días` }
+}
+
+function truncate(s: string, max: number): string {
+  if (!s) return ''
+  return s.length > max ? s.substring(0, max - 1) + '…' : s
+}
+
+function getTeamLabel(team: string): string {
+  const labels: Record<string, string> = { SALES: 'Sales', PRICING: 'Pricing', CUSTOMER: 'Customer', OPS: 'Operaciones' }
+  return labels[team] || team
+}
+
+function priorityLabel(p: string): string {
+  const labels: Record<string, string> = { CRITICAL: 'Crítica', HIGH: 'Alta', MEDIUM: 'Media', NORMAL: 'Normal', LOW: 'Baja' }
+  return labels[p] || p
+}
+
+function getEventColor(eventType: string): string {
+  const colors: Record<string, string> = {
+    OPERATION_CREATED: '#1E3A7B',
+    STATUS_CHANGED: '#F47A5A',
+    EMAIL_SENT: '#1E3A7B',
+    EMAIL_RECEIVED: '#888780',
+    DOCUMENT_RECEIVED: '#047857',
+    TASK_COMPLETED: '#047857',
+    STEP_COMPLETED: '#047857',
+    NOTE_ADDED: '#888780',
+  }
+  return colors[eventType] || '#888780'
 }
