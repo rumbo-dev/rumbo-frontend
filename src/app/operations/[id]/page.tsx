@@ -2,7 +2,7 @@
 
 import { useEffect, useState, ReactNode } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, MoreHorizontal, Send, Mail, FileText, AlertCircle, Check, Sparkles, Container, Anchor, MapPin, Clock, ChevronRight, Edit3, X, Activity, Calendar } from 'lucide-react'
+import { ArrowLeft, MoreHorizontal, Send, Mail, FileText, AlertCircle, Check, Sparkles, Container, Anchor, MapPin, Clock, ChevronRight, ChevronDown, Edit3, X, Activity, Calendar, MessageSquare } from 'lucide-react'
 import { StatusBadge, Button, Card, TeamAvatar, getCountryFlag, getCountryNameES } from '@/components/index'
 import Sidebar from '@/components/Sidebar'
 
@@ -247,113 +247,76 @@ export default function OperationPage() {
           {/* ============ HERO ============ */}
           <HeroSection operation={operation} subStatusInfo={subStatusInfo} progress={progress} />
 
-          {/* ============ AI SUGGESTIONS PREVIEW ============ */}
-          {totalSuggestions > 0 && (
-            <SuggestionsPreview count={totalSuggestions} />
-          )}
-
-          {/* ============ TWO-COLUMN GRID ============ */}
+          {/* ============ TWO-COLUMN GRID: Suggestions + Timeline ============ */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '20px', marginTop: '20px' }}>
 
-            {/* LEFT COLUMN */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* LEFT: AI Suggestions */}
+            <SectionCard
+              title="Sugerencias de Rumbo"
+              subtitle={
+                totalSuggestions === 0
+                  ? 'Sin nuevas acciones por revisar'
+                  : `${totalSuggestions} ${totalSuggestions === 1 ? 'lista para revisar' : 'listas para revisar'}`
+              }
+              icon={<Sparkles size={15} strokeWidth={1.8} />}
+              iconBg="linear-gradient(135deg, var(--rumbo-navy), var(--rumbo-coral))"
+              iconColor="white"
+            >
+              {totalSuggestions === 0 ? (
+                <EmptyStateInline
+                  icon={<Sparkles size={24} strokeWidth={1.5} style={{ color: 'var(--text-quaternary)' }} />}
+                  title="Todo al día"
+                  description="Rumbo no detectó acciones pendientes en esta operación. Cuando llegue una nueva comunicación, las sugerencias aparecerán acá."
+                />
+              ) : (
+                <div>
+                  {pendingDrafts.map((draft) => (
+                    <DraftItem key={draft.id} draft={draft} onApprove={() => handleApprove(draft.id)} />
+                  ))}
+                  {aiTasks.map((task) => (
+                    <TaskSuggestionItem key={task.id} task={task} />
+                  ))}
+                </div>
+              )}
+            </SectionCard>
 
-              {/* AI Suggestions full section */}
-              <SectionCard
-                title="Sugerencias de Rumbo"
-                subtitle={`${totalSuggestions} ${totalSuggestions === 1 ? 'lista para revisar' : 'listas para revisar'}`}
-                icon={<Sparkles size={15} strokeWidth={1.8} />}
-                iconBg="linear-gradient(135deg, var(--rumbo-navy), var(--rumbo-coral))"
-                iconColor="white"
-              >
-                {totalSuggestions === 0 ? (
-                  <EmptyStateInline
-                    icon={<Sparkles size={24} strokeWidth={1.5} style={{ color: 'var(--text-quaternary)' }} />}
-                    title="Sin sugerencias por ahora"
-                    description="Cuando llegue un email nuevo, Rumbo lo analizará y propondrá acciones acá."
-                  />
-                ) : (
-                  <div>
-                    {pendingDrafts.map((draft) => (
-                      <DraftItem key={draft.id} draft={draft} onApprove={() => handleApprove(draft.id)} />
-                    ))}
-                    {aiTasks.map((task) => (
-                      <TaskSuggestionItem key={task.id} task={task} />
-                    ))}
-                  </div>
-                )}
-              </SectionCard>
+            {/* RIGHT: Timeline */}
+            <SectionCard
+              title="Timeline de la operación"
+              subtitle="Eventos clave"
+              icon={<Activity size={15} strokeWidth={1.8} />}
+              iconBg="var(--surface-muted)"
+              iconColor="var(--text-secondary)"
+            >
+              {operation.timelineEvents.length === 0 && operation.journeySteps.filter((s) => s.narrativeNote).length === 0 ? (
+                <EmptyStateInline
+                  icon={<Activity size={24} strokeWidth={1.5} style={{ color: 'var(--text-quaternary)' }} />}
+                  title="Sin actividad aún"
+                  description="Los eventos de la operación aparecerán acá a medida que sucedan."
+                />
+              ) : (
+                <TimelineNarrative events={operation.timelineEvents} journeySteps={operation.journeySteps} />
+              )}
+            </SectionCard>
 
-              {/* Timeline */}
-              <SectionCard
-                title="Historial"
-                subtitle="Eventos clave de la operación"
-                icon={<Activity size={15} strokeWidth={1.8} />}
-                iconBg="var(--surface-muted)"
-                iconColor="var(--text-secondary)"
-              >
-                {operation.timelineEvents.length === 0 ? (
-                  <EmptyStateInline
-                    icon={<Activity size={24} strokeWidth={1.5} style={{ color: 'var(--text-quaternary)' }} />}
-                    title="Sin actividad aún"
-                    description="Los eventos de la operación aparecerán acá a medida que sucedan."
-                  />
-                ) : (
-                  <TimelineNarrative events={operation.timelineEvents} journeySteps={operation.journeySteps} />
-                )}
-              </SectionCard>
+          </div>
 
-            </div>
+          {/* ============ DOCUMENTS (full width) ============ */}
+          <div style={{ marginTop: '20px' }}>
+            <SectionCard
+              title="Documentos"
+              subtitle="BL, factura, packing list"
+              icon={<FileText size={15} strokeWidth={1.8} />}
+              iconBg="var(--surface-muted)"
+              iconColor="var(--text-secondary)"
+            >
+              <DocumentsList />
+            </SectionCard>
+          </div>
 
-            {/* RIGHT COLUMN */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-              {/* Documents */}
-              <SectionCard
-                title="Documentos"
-                subtitle="BL, factura, packing list"
-                icon={<FileText size={15} strokeWidth={1.8} />}
-                iconBg="var(--surface-muted)"
-                iconColor="var(--text-secondary)"
-              >
-                <DocumentsList />
-              </SectionCard>
-
-              {/* Recent Emails */}
-              <SectionCard
-                title="Emails recibidos"
-                subtitle="Conversaciones de la operación"
-                icon={<Mail size={15} strokeWidth={1.8} />}
-                iconBg="var(--surface-muted)"
-                iconColor="var(--text-secondary)"
-              >
-                <EmailsList />
-              </SectionCard>
-
-              {/* Tasks */}
-              <SectionCard
-                title="Tareas"
-                subtitle={`${pendingTasks.length} pendientes`}
-                icon={<Check size={15} strokeWidth={1.8} />}
-                iconBg="var(--surface-muted)"
-                iconColor="var(--text-secondary)"
-              >
-                {operation.tasks.length === 0 ? (
-                  <EmptyStateInline
-                    icon={<Check size={24} strokeWidth={1.5} style={{ color: 'var(--text-quaternary)' }} />}
-                    title="Sin tareas"
-                    description="Las tareas de la operación se listarán acá."
-                  />
-                ) : (
-                  <div>
-                    {operation.tasks.slice(0, 6).map((task) => (
-                      <TaskRow key={task.id} task={task} />
-                    ))}
-                  </div>
-                )}
-              </SectionCard>
-
-            </div>
+          {/* ============ COMUNICACIONES (collapsed, at the end) ============ */}
+          <div style={{ marginTop: '20px' }}>
+            <CommunicationsSection />
           </div>
 
         </div>
@@ -692,52 +655,6 @@ function SmallMetric({ label, value, secondary, mono, highlight }: { label: stri
 }
 
 // ============================================================================
-// SUGGESTIONS PREVIEW
-// ============================================================================
-
-function SuggestionsPreview({ count }: { count: number }) {
-  return (
-    <div style={{
-      marginTop: '16px',
-      background: 'var(--surface-card)',
-      border: '1px solid var(--border-default)',
-      borderRadius: '12px',
-      padding: '14px 18px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '14px',
-      cursor: 'pointer',
-      transition: 'all 150ms ease',
-    }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
-      onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-card)')}
-    >
-      <div style={{
-        width: '36px',
-        height: '36px',
-        background: 'linear-gradient(135deg, var(--rumbo-navy), var(--rumbo-coral))',
-        borderRadius: '10px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-      }}>
-        <Sparkles size={18} strokeWidth={2} style={{ color: 'white' }} />
-      </div>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>
-          Sugerencias de Rumbo · {count} {count === 1 ? 'lista' : 'listas'} para revisar
-        </div>
-        <div style={{ fontSize: '13.5px', color: 'var(--text-primary)' }}>
-          Bajá hasta &quot;Sugerencias&quot; para aprobarlas o ajustarlas
-        </div>
-      </div>
-      <ChevronRight size={18} style={{ color: 'var(--text-tertiary)' }} />
-    </div>
-  )
-}
-
-// ============================================================================
 // SECTION CARD
 // ============================================================================
 
@@ -945,7 +862,7 @@ function TimelineNarrative({ events, journeySteps }: { events: TimelineEvent[]; 
       .filter((s) => s.narrativeNote)
       .map((s) => ({
         id: `js-${s.id}`,
-        timestamp: s.actualDate || new Date().toISOString(),
+        timestamp: s.actualDate || s.completedAt || new Date().toISOString(),
         title: s.stepName,
         description: s.narrativeNote || '',
         type: 'step' as const,
@@ -1022,60 +939,90 @@ function DocumentsList() {
 }
 
 // ============================================================================
-// EMAILS LIST (placeholder for now)
+// COMUNICACIONES (collapsible — at the bottom of the page)
 // ============================================================================
 
-function EmailsList() {
-  return (
-    <EmptyStateInline
-      icon={<Mail size={24} strokeWidth={1.5} style={{ color: 'var(--text-quaternary)' }} />}
-      title="Sin emails registrados"
-      description="Los emails entrantes y salientes de esta operación aparecerán acá."
-    />
-  )
-}
-
-// ============================================================================
-// TASK ROW (compact)
-// ============================================================================
-
-function TaskRow({ task }: { task: Task }) {
-  const isPending = task.status === 'PENDING'
-  const isDone = task.status === 'COMPLETED'
+function CommunicationsSection() {
+  const [expanded, setExpanded] = useState(false)
+  const totalCount = 0  // placeholder — wired to backend later
 
   return (
-    <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-      <div style={{
-        width: '16px',
-        height: '16px',
-        borderRadius: '4px',
-        border: `1.5px solid ${isDone ? 'var(--success-fg)' : 'var(--border-strong)'}`,
-        background: isDone ? 'var(--success-fg)' : 'transparent',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        marginTop: '2px',
-        cursor: 'pointer',
-      }}>
-        {isDone && <Check size={11} strokeWidth={3} style={{ color: 'white' }} />}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
+    <div style={{
+      background: 'var(--surface-card)',
+      border: '1px solid var(--border-default)',
+      borderRadius: '12px',
+      overflow: 'hidden',
+    }}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          width: '100%',
+          padding: '16px 20px',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          textAlign: 'left',
+          transition: 'background 120ms ease',
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
+        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+      >
         <div style={{
-          fontSize: '13px',
-          fontWeight: 500,
-          color: isDone ? 'var(--text-tertiary)' : 'var(--text-primary)',
-          textDecoration: isDone ? 'line-through' : 'none',
-          marginBottom: '2px',
+          width: '28px',
+          height: '28px',
+          background: 'var(--surface-muted)',
+          color: 'var(--text-secondary)',
+          borderRadius: '7px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
         }}>
-          {task.title}
+          <MessageSquare size={15} strokeWidth={1.8} />
         </div>
-        {task.responsibleParty && (
-          <div style={{ fontSize: '11.5px', color: 'var(--text-tertiary)' }}>
-            {task.responsibleParty}
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+            Comunicaciones
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '1px' }}>
+            Mails, WhatsApp y llamadas registradas — Rumbo ya leyó esto por vos
+          </div>
+        </div>
+        {totalCount > 0 && (
+          <div style={{
+            fontSize: '12px',
+            fontWeight: 500,
+            color: 'var(--text-tertiary)',
+            background: 'var(--surface-muted)',
+            padding: '3px 9px',
+            borderRadius: '12px',
+            marginRight: '8px',
+          }}>
+            {totalCount}
           </div>
         )}
-      </div>
+        <ChevronDown
+          size={16}
+          style={{
+            color: 'var(--text-tertiary)',
+            transition: 'transform 200ms ease',
+            transform: expanded ? 'rotate(180deg)' : 'rotate(0)',
+          }}
+        />
+      </button>
+
+      {expanded && (
+        <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <EmptyStateInline
+            icon={<MessageSquare size={24} strokeWidth={1.5} style={{ color: 'var(--text-quaternary)' }} />}
+            title="Sin comunicaciones registradas"
+            description="Los mails, WhatsApp y llamadas vinculadas a esta operación aparecerán acá."
+          />
+        </div>
+      )}
     </div>
   )
 }
