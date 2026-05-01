@@ -293,3 +293,43 @@ export function JourneyStep({ steps }: { steps: any[] }) {
     </div>
   )
 }
+
+
+// ============ TEAM AVATAR ============
+const TEAM_CONFIG: Record<string, { initials: string; bg: string; fg: string; label: string }> = {
+  SALES: { initials: 'S', bg: '#EEF1F8', fg: '#1E3A7B', label: 'Sales' },
+  PRICING: { initials: 'P', bg: '#FFF1EC', fg: '#F47A5A', label: 'Pricing' },
+  CUSTOMER: { initials: 'CS', bg: '#ECFDF5', fg: '#047857', label: 'Customer' },
+  OPS: { initials: 'OPS', bg: '#FFFBEB', fg: '#B45309', label: 'Operaciones' },
+}
+
+export function TeamAvatar({ team, size = 'md' }: { team: string; size?: 'sm' | 'md' }) {
+  const config = TEAM_CONFIG[team] || { initials: '?', bg: '#F3F4F6', fg: '#4B5563', label: team }
+  const sizes = { sm: 24, md: 28 }
+  const fontSize = size === 'sm' ? 10 : 11
+
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: `${sizes[size]}px`,
+        height: `${sizes[size]}px`,
+        borderRadius: '6px',
+        background: config.bg,
+        color: config.fg,
+        fontSize: `${fontSize}px`,
+        fontWeight: 600,
+        flexShrink: 0,
+      }}
+      title={config.label}
+    >
+      {config.initials}
+    </div>
+  )
+}
+
+export function getTeamLabel(team: string): string {
+  return TEAM_CONFIG[team]?.label || team
+}

@@ -4,7 +4,7 @@ import { useState, useEffect, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import { Search, Plus, Mail, Package, AlertTriangle, Clock, ChevronDown, Check } from 'lucide-react'
-import { StatusBadge, Button, EmptyState, SkeletonRow, getCountryFlag, getCountryNameES } from '@/components/index'
+import { StatusBadge, Button, EmptyState, SkeletonRow, getCountryFlag, getCountryNameES, TeamAvatar } from '@/components/index'
 import EmailIntakeModal from '@/components/EmailIntakeModal'
 import Sidebar from '@/components/Sidebar'
 
@@ -34,6 +34,8 @@ interface Operation {
   shippingLine: string
   incoterm: string
   mode?: string
+  currentOwner: string
+  subStatus: string
   tasks?: Task[]
 }
 
@@ -54,6 +56,15 @@ const ALERT_OPTIONS: { value: AlertFilter; label: string }[] = [
   { value: 'NONE', label: 'Sin alertas' },
 ]
 
+type TeamFilter = 'SALES' | 'PRICING' | 'CUSTOMER' | 'OPS'
+
+const TEAM_OPTIONS: { value: TeamFilter; label: string }[] = [
+  { value: 'SALES', label: 'Sales' },
+  { value: 'PRICING', label: 'Pricing' },
+  { value: 'CUSTOMER', label: 'Customer' },
+  { value: 'OPS', label: 'Operaciones' },
+]
+
 export default function Dashboard() {
   const router = useRouter()
   const [operations, setOperations] = useState<Operation[]>([])
@@ -64,6 +75,8 @@ export default function Dashboard() {
   const [heroFilter, setHeroFilter] = useState<'all_active' | 'critical' | 'eta_week' | null>(null)
   const [showStatusDropdown, setShowStatusDropdown] = useState(false)
   const [showAlertDropdown, setShowAlertDropdown] = useState(false)
+  const [teamFilters, setTeamFilters] = useState<TeamFilter[]>([])
+  const [showTeamDropdown, setShowTeamDropdown] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showEmailIntake, setShowEmailIntake] = useState(false)
 
@@ -171,6 +184,7 @@ export default function Dashboard() {
       const matchesPriority = alerts.priority && alertFilters.includes(alerts.priority as AlertFilter)
       if (!matchesNone && !matchesPriority) return false
     }
+    if (teamFilters.length > 0 && !teamFilters.includes(op.currentOwner as TeamFilter)) return false
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       return (
@@ -280,7 +294,7 @@ export default function Dashboard() {
                 label="Alertas"
                 count={alertFilters.length}
                 active={showAlertDropdown}
-                onClick={() => { setShowAlertDropdown(!showAlertDropdown); setShowStatusDropdown(false); }}
+                onClick={() => { setShowAlertDropdown(!showAlertDropdown); setShowStatusDropdown(false); setShowTeamDropdown(false); }}
               />
               {showAlertDropdown && (
                 <FilterDropdown
@@ -289,6 +303,32 @@ export default function Dashboard() {
                   onToggle={(v) => toggleAlertFilter(v as AlertFilter)}
                   onClear={() => setAlertFilters([])}
                   onClose={() => setShowAlertDropdown(false)}
+                />
+              )}
+            </div>
+
+            <div style={{ position: 'relative' }}>
+              <FilterButton
+                label="Equipo"
+                count={teamFilters.length}
+                active={showTeamDropdown}
+                onClick={() => { 
+                  setShowTeamDropdown(!showTeamDropdown); 
+                  setShowStatusDropdown(false); 
+                  setShowAlertDropdown(false);
+                }}
+              />
+              {showTeamDropdown && (
+                <FilterDropdown
+                  options={TEAM_OPTIONS}
+                  selected={teamFilters}
+                  onToggle={(v) => setTeamFilters(prev => 
+                    prev.includes(v as TeamFilter) 
+                      ? prev.filter(t => t !== v) 
+                      : [...prev, v as TeamFilter]
+                  )}
+                  onClear={() => setTeamFilters([])}
+                  onClose={() => setShowTeamDropdown(false)}
                 />
               )}
             </div>
@@ -340,9 +380,10 @@ export default function Dashboard() {
 
           {/* Table */}
           <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: '10px', overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 0.9fr 1.8fr', padding: '0 20px', height: '42px', alignItems: 'center', borderBottom: '1px solid var(--border-default)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.6fr 0.9fr 1fr 0.9fr 1.8fr', padding: '0 20px', height: '42px', alignItems: 'center', borderBottom: '1px solid var(--border-default)' }}>
               <HeaderCell>Operación</HeaderCell>
               <HeaderCell>Estado</HeaderCell>
+              <HeaderCell>Owner</HeaderCell>
               <HeaderCell>Carrier</HeaderCell>
               <HeaderCell>Origen</HeaderCell>
               <HeaderCell>ETA</HeaderCell>
@@ -372,7 +413,7 @@ export default function Dashboard() {
                     onClick={() => router.push(`/operations/${op.id}`)}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 0.9fr 1.8fr',
+                      gridTemplateColumns: '1.6fr 1fr 0.6fr 0.9fr 1fr 0.9fr 1.8fr',
                       padding: '0 20px',
                       minHeight: '64px',
                       alignItems: 'center',
@@ -395,7 +436,8 @@ export default function Dashboard() {
                       <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>{op.operationCode}</div>
                       <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{op.clientName}</div>
                     </div>
-                    <div><StatusBadge status={op.status} /></div>
+                    <div><StatusBadge status={op.subStatus} /></div>
+                    <div><TeamAvatar team={op.currentOwner} size="sm" /></div>
                     <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{op.shippingLine}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '18px', lineHeight: 1 }}>{getCountryFlag(op.originCountry)}</span>
