@@ -34,7 +34,7 @@ export default function LoginPage() {
 
       const data = await res.json()
       localStorage.setItem('token', data.token)
-      router.push('/dashboard')
+      router.push('/today')
     } catch (err: any) {
       setError(err.message)
       setLoading(false)

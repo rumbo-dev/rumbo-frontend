@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
-import { LayoutGrid, DollarSign, BarChart3, Plus, Settings, ChevronRight } from 'lucide-react'
+import { LayoutGrid, DollarSign, BarChart3, Plus, Settings, ChevronRight, Sun } from 'lucide-react'
 
 interface SidebarProps {
   onNewOperation?: () => void
@@ -11,6 +11,7 @@ export default function Sidebar({ onNewOperation }: SidebarProps) {
   const router = useRouter()
   const pathname = usePathname()
 
+  const isTodayActive = pathname === '/today'
   const isDashboardActive = pathname === '/dashboard' || pathname?.startsWith('/operations')
 
   return (
@@ -47,6 +48,43 @@ export default function Sidebar({ onNewOperation }: SidebarProps) {
 
       {/* Main nav */}
       <nav style={{ flex: 1, padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        <button
+          onClick={() => router.push('/today')}
+          style={{
+            width: '100%',
+            padding: '12px 14px',
+            marginBottom: '10px',
+            background: isTodayActive
+              ? 'linear-gradient(135deg, var(--rumbo-navy), var(--rumbo-coral))'
+              : 'linear-gradient(135deg, var(--rumbo-navy-soft), var(--rumbo-coral-soft))',
+            color: isTodayActive ? 'white' : 'var(--rumbo-navy)',
+            border: isTodayActive ? 'none' : '1px solid var(--border-default)',
+            borderRadius: '10px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '13.5px',
+            fontWeight: 600,
+            textAlign: 'left',
+            transition: 'all 200ms ease',
+            boxShadow: isTodayActive ? 'var(--shadow-md)' : 'none',
+          }}
+        >
+          <Sun size={17} strokeWidth={2} />
+          <div style={{ flex: 1 }}>
+            <div>Hoy en Rumbo</div>
+            <div style={{
+              fontSize: '11px',
+              fontWeight: 400,
+              opacity: 0.85,
+              marginTop: '1px',
+            }}>
+              Lo que necesita atención
+            </div>
+          </div>
+        </button>
+
         <NavItem
           icon={<LayoutGrid size={17} strokeWidth={1.8} />}
           label="Dashboard"
