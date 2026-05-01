@@ -2,6 +2,7 @@
 
 import { useEffect, useState, ReactNode } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import RouteMapReal from './RouteMapReal'
 import { ArrowLeft, MoreHorizontal, Send, Mail, FileText, AlertCircle, Check, Sparkles, Container, Anchor, MapPin, Clock, ChevronRight, ChevronDown, Edit3, X, Activity, Calendar, MessageSquare } from 'lucide-react'
 import { StatusBadge, Button, Card, TeamAvatar, getCountryFlag, getCountryNameES } from '@/components/index'
 import Sidebar from '@/components/Sidebar'
@@ -401,7 +402,7 @@ function HeroSection({ operation, subStatusInfo, progress }: { operation: Operat
       </div>
 
       {/* ROUTE MAP */}
-      <RouteMap operation={operation} progress={progress} />
+      <RouteMapReal operation={operation} progress={progress} />
 
       {/* Key data strip */}
       <div style={{
