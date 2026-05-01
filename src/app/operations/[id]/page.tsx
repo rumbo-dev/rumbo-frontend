@@ -945,7 +945,7 @@ function TimelineNarrative({ events, journeySteps }: { events: TimelineEvent[]; 
       .filter((s) => s.narrativeNote)
       .map((s) => ({
         id: `js-${s.id}`,
-        timestamp: s.actualDate || s.completedAt || new Date().toISOString(),
+        timestamp: s.actualDate || new Date().toISOString(),
         title: s.stepName,
         description: s.narrativeNote || '',
         type: 'step' as const,
