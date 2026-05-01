@@ -214,13 +214,13 @@ export default function OperationPage() {
               subtext={operation.eta ? getRelativeDate(operation.eta) : 'Not scheduled'}
             />
             <Stat
-              label="Cost"
-              value={`$${operation.costEstimate.toLocaleString()}`}
+              label="Cost"             
+              value={`${operation.costEstimate ? `$${operation.costEstimate.toLocaleString()}` : 'N/A'}`}
               subtext={operation.costActual ? `Actual: $${operation.costActual.toLocaleString()}` : 'Estimate'}
             />
             <Stat
               label="Weight"
-              value={`${operation.weightKg.toLocaleString()} kg`}
+              value={`${operation.weightKg ? `${operation.weightKg.toLocaleString()} kg` : 'N/A'}`}
               subtext={operation.cbm ? `${operation.cbm} CBM` : undefined}
             />
           </div>
