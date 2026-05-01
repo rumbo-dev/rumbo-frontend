@@ -450,143 +450,94 @@ function DataPoint({ label, value, mono }: { label: string; value: string; mono?
 // ============================================================================
 
 function RouteMap({ operation, progress }: { operation: Operation; progress: number }) {
-  // Real port coordinates (lon/lat)
-  const ports: Record<string, { lon: number; lat: number }> = {
-    CN: { lon: 121.5, lat: 30.3 },
-    AR: { lon: -58.3, lat: -34.6 },
-    BR: { lon: -43.2, lat: -22.9 },
-    CL: { lon: -71.6, lat: -33.0 },
-    PE: { lon: -77.2, lat: -12.0 },
-    UY: { lon: -56.2, lat: -34.9 },
-    US: { lon: -87.6, lat: 30.2 },
-    DE: { lon: 8.6, lat: 53.5 },
-    NL: { lon: 4.3, lat: 51.9 },
-    ES: { lon: -3.7, lat: 40.4 },
-    IT: { lon: 12.6, lat: 41.1 },
-    JP: { lon: 139.8, lat: 35.0 },
-    KR: { lon: 126.9, lat: 37.4 },
-    IN: { lon: 72.8, lat: 19.0 },
-    AE: { lon: 54.3, lat: 25.1 },
-    TR: { lon: 28.9, lat: 41.0 },
-  }
+  const ports: Record<string, [number, number]> = {
+    CN: [121.5, 30.3], AR: [-58.3, -34.6], BR: [-43.2, -22.9], CL: [-71.6, -33.0],
+    PE: [-77.2, -12.0], UY: [-56.2, -34.9], US: [-87.6, 30.2], DE: [8.6, 53.5],
+    NL: [4.3, 51.9], ES: [-3.7, 40.4], IT: [12.6, 41.1], JP: [139.8, 35.0],
+    KR: [126.9, 37.4], IN: [72.8, 19.0], AE: [54.3, 25.1], TR: [28.9, 41.0],
+  };
 
-  const toSVGPoint = (lon: number, lat: number): [number, number] => {
-    const x = ((lon + 180) / 360) * 1000
-    const y = ((90 - lat) / 180) * 300
-    return [x, y]
-  }
+  const toSVG = ([lon, lat]: [number, number]): [number, number] => [
+    ((lon + 180) / 360) * 1000,
+    ((90 - lat) / 180) * 300,
+  ];
 
-  const originData = ports[operation.originCountry || 'CN'] || { lon: 121.5, lat: 30.3 }
-  const destData = ports[operation.destinationCountry || 'AR'] || { lon: -58.3, lat: -34.6 }
+  const [oX, oY] = toSVG(ports[operation.originCountry || 'CN'] || [121.5, 30.3]);
+  const [dX, dY] = toSVG(ports[operation.destinationCountry || 'AR'] || [-58.3, -34.6]);
 
-  const [originX, originY] = toSVGPoint(originData.lon, originData.lat)
-  const [destX, destY] = toSVGPoint(destData.lon, destData.lat)
+  const mX = (oX + dX) / 2;
+  const mY = Math.min(oY, dY) - 60;
+  const t = progress;
+  const cX = (1-t)*(1-t)*oX + 2*(1-t)*t*mX + t*t*dX;
+  const cY = (1-t)*(1-t)*oY + 2*(1-t)*t*mY + t*t*dY;
 
-  // Great circle arc
-  const midX = (originX + destX) / 2
-  const midY = Math.min(originY, destY) - 60
-
-  // Bezier curve position
-  const t = progress
-  const containerX = (1 - t) * (1 - t) * originX + 2 * (1 - t) * t * midX + t * t * destX
-  const containerY = (1 - t) * (1 - t) * originY + 2 * (1 - t) * t * midY + t * t * destY
-
-  // Status
-  const statusText = {
-    QUOTING: 'Pendiente cotización',
-    BOOKING: 'En booking',
-    IN_TRANSIT: 'En tránsito',
-    AT_DESTINATION: 'En destino',
-    CLOSED: 'Finalizada',
-  }[operation.status] || ''
-
-  const statusColor = {
-    CLOSED: '#888780',
-    IN_TRANSIT: '#1E3A7B',
-    AT_DESTINATION: '#047857',
-  }[operation.status] || '#F47A5A'
+  const statusColor = { CLOSED: '#888780', IN_TRANSIT: '#1E3A7B', AT_DESTINATION: '#047857' }[operation.status] || '#F47A5A';
+  const statusText = { QUOTING: 'Pendiente', BOOKING: 'En booking', IN_TRANSIT: 'En tránsito', AT_DESTINATION: 'En destino', CLOSED: 'Finalizada' }[operation.status] || '';
 
   return (
-    <div style={{
-      background: 'var(--surface-card)',
-      border: '1px solid var(--border-subtle)',
-      borderRadius: '12px',
-      overflow: 'hidden',
-    }}>
-      <div style={{ position: 'relative', height: '320px', background: 'linear-gradient(135deg, #E3F2FD 0%, #ECE7F1 100%)' }}>
+    <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ position: 'relative', height: '320px', background: '#EAF1F8' }}>
         <svg viewBox="0 0 1000 300" preserveAspectRatio="xMidYMid slice" style={{ width: '100%', height: '100%', display: 'block' }}>
           {/* Grid */}
-          {[...Array(13)].map((_, i) => {
-            const x = (i / 12) * 1000
-            return <line key={`vline${i}`} x1={x} y1={0} x2={x} y2={300} stroke="rgba(0,0,0,0.04)" strokeWidth="0.5" />
-          })}
-          {[...Array(7)].map((_, i) => {
-            const y = (i / 6) * 300
-            return <line key={`hline${i}`} x1={0} y1={y} x2={1000} y2={y} stroke="rgba(0,0,0,0.04)" strokeWidth="0.5" />
-          })}
+          {[...Array(13)].map((_, i) => <line key={`v${i}`} x1={(i/12)*1000} y1={0} x2={(i/12)*1000} y2={300} stroke="rgba(0,0,0,0.05)" strokeWidth="0.5" />)}
+          {[...Array(7)].map((_, i) => <line key={`h${i}`} x1={0} y1={(i/6)*300} x2={1000} y2={(i/6)*300} stroke="rgba(0,0,0,0.05)" strokeWidth="0.5" />)}
 
-          {/* Route pending (dashed) */}
-          <path d={`M ${originX} ${originY} Q ${midX} ${midY} ${destX} ${destY}`} stroke="#E0E0E0" strokeWidth="2" fill="none" strokeDasharray="5 4" opacity="0.6" />
+          {/* Continent shapes (simplified) */}
+          <g fill="#F4F1E8" stroke="#E0DCCF" strokeWidth="0.5" opacity="0.7">
+            {/* East Asia */}
+            <path d="M 840 60 Q 920 50 1000 80 Q 1000 180 950 220 Q 900 200 880 130 Q 840 90 840 60 Z" />
+            {/* Europe */}
+            <path d="M 540 70 Q 650 60 700 100 Q 690 160 600 170 Q 550 150 540 110 Z" />
+            {/* Africa */}
+            <path d="M 600 150 Q 700 140 750 200 Q 730 270 650 280 Q 600 250 600 150 Z" />
+            {/* North America */}
+            <path d="M 80 80 Q 200 60 240 140 Q 220 180 140 190 Q 100 150 80 100 Z" />
+            {/* South America */}
+            <path d="M 220 180 Q 310 170 340 280 Q 280 310 220 290 Z" />
+            {/* India */}
+            <path d="M 820 180 Q 860 170 880 220 Q 860 250 820 240 Z" />
+          </g>
 
-          {/* Route traveled (solid) */}
-          {progress > 0.01 && (
-            <path d={`M ${originX} ${originY} Q ${midX} ${midY} ${containerX} ${containerY}`} stroke={statusColor} strokeWidth="2.5" fill="none" opacity="0.85" />
-          )}
+          {/* Route pending */}
+          <path d={`M ${oX} ${oY} Q ${mX} ${mY} ${dX} ${dY}`} stroke="#D0D0D0" strokeWidth="2" fill="none" strokeDasharray="5 4" opacity="0.5" />
+
+          {/* Route traveled */}
+          {progress > 0.01 && <path d={`M ${oX} ${oY} Q ${mX} ${mY} ${cX} ${cY}`} stroke={statusColor} strokeWidth="3" fill="none" opacity="0.9" strokeLinecap="round" />}
 
           {/* Origin */}
-          <circle cx={originX} cy={originY} r="8" fill="white" stroke={statusColor} strokeWidth="2.5" />
-          <circle cx={originX} cy={originY} r="3" fill={statusColor} />
-          <text x={originX} y={originY - 18} textAnchor="middle" fontSize="10" fontWeight="600" fill="var(--text-primary)">
-            {operation.originCountry}
-          </text>
+          <circle cx={oX} cy={oY} r="12" fill="white" stroke={statusColor} strokeWidth="3" />
+          <circle cx={oX} cy={oY} r="5" fill={statusColor} />
+          <text x={oX} y={oY - 24} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--text-primary)">{operation.originCountry}</text>
 
           {/* Destination */}
-          <circle cx={destX} cy={destY} r="8" fill="white" stroke={statusColor} strokeWidth="2.5" />
-          <circle cx={destX} cy={destY} r="3" fill={statusColor} />
-          <text x={destX} y={destY + 20} textAnchor="middle" fontSize="10" fontWeight="600" fill="var(--text-primary)">
-            {operation.destinationCountry}
-          </text>
+          <circle cx={dX} cy={dY} r="12" fill="white" stroke={statusColor} strokeWidth="3" />
+          <circle cx={dX} cy={dY} r="5" fill={statusColor} />
+          <text x={dX} y={dY + 26} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--text-primary)">{operation.destinationCountry}</text>
 
           {/* Container */}
           {operation.status !== 'QUOTING' && operation.status !== 'CLOSED' && (
             <>
-              <circle cx={containerX} cy={containerY} r="22" fill={statusColor} opacity="0.15" />
-              <circle cx={containerX} cy={containerY} r="16" fill={statusColor} />
-              <g transform={`translate(${containerX - 9}, ${containerY - 5})`}>
-                <rect x="0" y="0" width="18" height="10" rx="1" stroke="white" strokeWidth="1.5" fill="none" />
-                <line x1="4" y1="0" x2="4" y2="10" stroke="white" strokeWidth="1" />
-                <line x1="9" y1="0" x2="9" y2="10" stroke="white" strokeWidth="1" />
-                <line x1="14" y1="0" x2="14" y2="10" stroke="white" strokeWidth="1" />
+              <circle cx={cX} cy={cY} r="18" fill={statusColor} opacity="0.12" />
+              <circle cx={cX} cy={cY} r="12" fill={statusColor} />
+              <g transform={`translate(${cX - 8}, ${cY - 4})`}>
+                <rect x="0" y="0" width="16" height="8" rx="1" stroke="white" strokeWidth="1.2" fill="none" />
+                <line x1="3" y1="0" x2="3" y2="8" stroke="white" strokeWidth="1" />
+                <line x1="8" y1="0" x2="8" y2="8" stroke="white" strokeWidth="1" />
+                <line x1="13" y1="0" x2="13" y2="8" stroke="white" strokeWidth="1" />
               </g>
             </>
           )}
         </svg>
 
         {/* Status badge */}
-        <div style={{
-          position: 'absolute',
-          top: '14px',
-          left: '14px',
-          background: 'white',
-          padding: '7px 11px',
-          borderRadius: '8px',
-          border: '0.5px solid var(--border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          fontSize: '12px',
-          fontWeight: 500,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-        }}>
+        <div style={{ position: 'absolute', top: '14px', left: '14px', background: 'white', padding: '7px 11px', borderRadius: '8px', border: '0.5px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 500, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
           <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: statusColor }} />
           <span style={{ color: 'var(--text-primary)' }}>{statusText}</span>
         </div>
       </div>
-
-      {/* Route metrics */}
       <RouteMetrics operation={operation} progress={progress} />
     </div>
-  )
+  );
 }
 
 function RouteMetrics({ operation, progress }: { operation: Operation; progress: number }) {
