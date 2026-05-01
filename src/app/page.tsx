@@ -83,20 +83,7 @@ export default function LoginPage() {
 
         {/* Top: Logo */}
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{
-              padding: '10px 16px',
-              background: 'rgba(255, 255, 255, 0.95)',
-              borderRadius: '12px',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-            }}>
-              <img
-                src="/logo-rumbo.png"
-                alt="Rumbo"
-                style={{ height: '28px', width: 'auto', display: 'block' }}
-              />
-            </div>
-          </div>
+          <RumboLogoBranded />
         </div>
 
         {/* Center: Tagline + frase */}
@@ -152,7 +139,7 @@ export default function LoginPage() {
                   Sugerencia de Rumbo
                 </div>
                 <div style={{ fontSize: '13px', fontWeight: 500, marginTop: '2px' }}>
-                  3 acciones detectadas en OP RUMBO-DEMO-001
+                  3 acciones detectadas en OP-2024-0142
                 </div>
               </div>
             </div>
@@ -163,7 +150,7 @@ export default function LoginPage() {
               </div>
               <div style={{ fontSize: '12.5px', color: '#444', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: RUMBO_NAVY }} />
-                Email lista para enviar a CICSA
+                Email listo para enviar al cliente
               </div>
               <div style={{ fontSize: '12.5px', color: '#444', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#888' }} />
@@ -183,7 +170,7 @@ export default function LoginPage() {
           <div style={{ display: 'flex', gap: '20px' }}>
             <Link href="/privacy" style={{ color: 'inherit', textDecoration: 'none' }}>Privacy</Link>
             <Link href="/terms" style={{ color: 'inherit', textDecoration: 'none' }}>Terms</Link>
-            <Link href="https://rumbocorp.com" style={{ color: 'inherit', textDecoration: 'none' }}>rumbocorp.com</Link>
+            <Link href="https://rumbo-ai.com" style={{ color: 'inherit', textDecoration: 'none' }}>rumbo-ai.com</Link>
           </div>
         </div>
       </div>
@@ -327,6 +314,56 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// RUMBO LOGO — Provisional brand logo with route symbol + wordmark
+// Designed to work on dark gradient background (white text + symbol)
+// ============================================================================
+
+function RumboLogoBranded() {
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '16px' }}>
+      {/* Symbol: route from origin (navy) to destination (coral) */}
+      <div style={{
+        width: '64px',
+        height: '64px',
+        background: 'white',
+        borderRadius: '15px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+      }}>
+        <svg width="38" height="38" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {/* Curved route line */}
+          <path
+            d="M 10 12 Q 22 12 26 28"
+            stroke="#1E3A7B"
+            strokeWidth="2.8"
+            strokeLinecap="round"
+            fill="none"
+          />
+          {/* Origin point */}
+          <circle cx="10" cy="12" r="4" fill="#1E3A7B" />
+          {/* Destination point — coral accent */}
+          <circle cx="26" cy="28" r="4.5" fill="#F47A5A" />
+          <circle cx="26" cy="28" r="2" fill="white" />
+        </svg>
+      </div>
+
+      {/* Wordmark */}
+      <span style={{
+        fontSize: '38px',
+        fontWeight: 700,
+        letterSpacing: '-0.025em',
+        color: 'white',
+        lineHeight: 1,
+      }}>
+        Rumbo
+      </span>
     </div>
   )
 }
