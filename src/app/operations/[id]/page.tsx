@@ -10,25 +10,26 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 interface Operation {
   id: string
   operationCode: string
-  containerNumber: string
+  containerNumber?: string | null
   status: string
-  currentStage: string
-  originPort: string
-  originCountry: string
-  destinationPort: string
-  destinationCountry: string
-  weightKg: number
-  cbm?: number
-  incoterm: string
+  subStatus: string
+  currentOwner: string
+  originPort?: string | null
+  originCountry?: string | null
+  destinationPort?: string | null
+  destinationCountry?: string | null
+  weightKg?: number | null
+  cbm?: number | null
+  incoterm?: string | null
   mode?: string
   clientName: string
   clientEmail?: string
-  shippingLine: string
-  costEstimate: number
-  costActual?: number
-  eta?: string
+  shippingLine?: string | null
+  costEstimate?: number | null
+  costActual?: number | null
+  eta?: string | null
   priority: string
-  notes?: string
+  notes?: string | null
   tasks: Task[]
   journeySteps: JourneyStep[]
   timelineEvents: TimelineEvent[]
@@ -204,7 +205,7 @@ export default function OperationPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '32px' }}>
             <Stat
               label="Route"
-              value={`${operation.originPort.split(',')[0]} → ${operation.destinationPort.split(',')[0]}`}
+              value={`${operation.originPort?.split(',')[0] || 'TBD'} → ${operation.destinationPort?.split(',')[0] || 'TBD'}`}
               subtext={`${operation.shippingLine}`}
             />
             <Stat
