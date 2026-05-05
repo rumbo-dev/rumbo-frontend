@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import DemoModeButton from '@/components/demo-mode/DemoModeButton'
 
 interface TodayData {
   user: { name: string }
@@ -44,25 +45,30 @@ export default function TodayPage() {
       <Sidebar />
 
       <main style={{ marginLeft: '240px', padding: '40px 48px', maxWidth: '1200px' }}>
-        {/* Greeting */}
-        <div style={{ marginBottom: '40px' }}>
-          <h1 style={{
-            fontSize: '36px',
-            fontWeight: 600,
-            color: 'var(--text-primary)',
-            margin: 0,
-            letterSpacing: '-0.02em',
-          }}>
-            {greeting}, {data?.user.name || 'Agustín'} <span style={{ color: 'var(--rumbo-coral)' }}>👋</span>
-          </h1>
-          <p style={{
-            fontSize: '15px',
-            color: 'var(--text-tertiary)',
-            margin: '6px 0 0 0',
-            textTransform: 'capitalize',
-          }}>
-            {dayLabel}
-          </p>
+        {/* Greeting + Demo Mode */}
+        <div style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '24px' }}>
+          <div>
+            <h1 style={{
+              fontSize: '36px',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              margin: 0,
+              letterSpacing: '-0.02em',
+            }}>
+              {greeting}, {data?.user.name || 'Agustín'} <span style={{ color: 'var(--rumbo-coral)' }}>👋</span>
+            </h1>
+            <p style={{
+              fontSize: '15px',
+              color: 'var(--text-tertiary)',
+              margin: '6px 0 0 0',
+              textTransform: 'capitalize',
+            }}>
+              {dayLabel}
+            </p>
+          </div>
+          <div style={{ marginTop: '8px' }}>
+            <DemoModeButton />
+          </div>
         </div>
 
         {loading && (
