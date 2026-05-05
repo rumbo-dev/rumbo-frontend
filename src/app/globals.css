@@ -100,3 +100,103 @@ select:focus {
   border-color: var(--rumbo-navy);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--rumbo-navy) 12%, transparent);
 }
+
+/* ============ Chat AI markdown styles ============ */
+.markdown-body {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  font-weight: 600;
+  margin: 12px 0 6px 0;
+  color: var(--text-primary);
+}
+.markdown-body h1 { font-size: 18px; }
+.markdown-body h2 { font-size: 16px; }
+.markdown-body h3 { font-size: 14px; }
+
+.markdown-body p {
+  margin: 6px 0;
+}
+
+.markdown-body p:first-child { margin-top: 0; }
+.markdown-body p:last-child { margin-bottom: 0; }
+
+.markdown-body strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.markdown-body ul, .markdown-body ol {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+
+.markdown-body li {
+  margin: 3px 0;
+}
+
+.markdown-body code {
+  background: var(--surface-muted);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: ui-monospace, SF Mono, monospace;
+  color: var(--rumbo-navy);
+}
+
+.markdown-body pre {
+  background: var(--surface-muted);
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.markdown-body pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.markdown-body th {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-default);
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.markdown-body td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.markdown-body a {
+  color: var(--rumbo-navy);
+  text-decoration: underline;
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--border-default);
+  margin: 12px 0;
+}
+
+.markdown-body blockquote {
+  border-left: 3px solid var(--rumbo-coral);
+  padding-left: 12px;
+  margin: 8px 0;
+  color: var(--text-secondary);
+}

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface Message {
   id: string
@@ -253,9 +255,14 @@ export default function AIChatButton() {
                         color: msg.role === 'user' ? 'white' : 'var(--text-primary)',
                         fontSize: '14px',
                         lineHeight: 1.5,
-                        whiteSpace: 'pre-wrap',
                       }}>
-                        {msg.content}
+                        {msg.role === 'assistant' ? (
+                          <div className="markdown-body">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+                        )}
                       </div>
                     </div>
                   ))}
