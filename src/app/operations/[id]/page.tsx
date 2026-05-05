@@ -334,20 +334,39 @@ function HeroSection({ operation, subStatusInfo, progress }: { operation: Operat
   const etaInfo = getETAInfo(operation.eta)
   const etdInfo = getETAInfo(operation.etd)
 
+  // Pre-title chunks: OPERACIÓN · FCL · CIF
+  const preTitleParts = ['OPERACIÓN', operation.mode || 'FCL']
+  if (operation.incoterm) preTitleParts.push(operation.incoterm)
+
   return (
     <div style={{
       background: 'linear-gradient(135deg, var(--surface-card) 0%, #FAFAF7 100%)',
       border: '1px solid var(--border-default)',
       borderRadius: '16px',
-      padding: '24px 28px',
+      padding: '20px 24px',
       position: 'relative',
       overflow: 'hidden',
     }}>
       {/* Top row: title + identity + actions */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px', gap: '16px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px', gap: '16px', flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
+          {/* PRE-TITLE: OPERACIÓN · FCL · CIF */}
+          <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '6px' }}>
+            {preTitleParts.join(' · ')}
+          </div>
+
+          {/* TITLE: code with gradient + status pills */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
-            <h1 style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+            <h1 style={{
+              fontSize: '26px',
+              fontWeight: 700,
+              margin: 0,
+              letterSpacing: '-0.02em',
+              background: 'linear-gradient(135deg, var(--rumbo-navy) 0%, var(--rumbo-coral) 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}>
               {operation.operationCode}
             </h1>
             <div style={{
@@ -375,16 +394,10 @@ function HeroSection({ operation, subStatusInfo, progress }: { operation: Operat
               </div>
             )}
           </div>
+
+          {/* SUBTITLE: client + creation date */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 500 }}>{operation.clientName}</span>
-            <span style={{ color: 'var(--text-quaternary)' }}>·</span>
-            <span>{operation.mode || 'FCL'}</span>
-            {operation.incoterm && (
-              <>
-                <span style={{ color: 'var(--text-quaternary)' }}>·</span>
-                <span>{operation.incoterm}</span>
-              </>
-            )}
             <span style={{ color: 'var(--text-quaternary)' }}>·</span>
             <span style={{ color: 'var(--text-tertiary)' }}>Creada {formatShortDate(operation.createdAt)}</span>
           </div>
@@ -401,48 +414,27 @@ function HeroSection({ operation, subStatusInfo, progress }: { operation: Operat
         </div>
       </div>
 
-      {/* Split layout: data left + map right */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '24px', alignItems: 'stretch' }}>
+      {/* Split layout: compact data grid left + map right */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '20px', alignItems: 'stretch' }}>
 
-        {/* LEFT: 3 sections of grouped data */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-
-          {/* RUTA */}
-          <div style={{ padding: '14px 16px', background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px' }}>
-            <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
-              Ruta
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
-              <HeroDataField label="ETD" value={etdInfo.primary} secondary={etdInfo.secondary} />
-              <HeroDataField label="ETA" value={etaInfo.primary} secondary={etaInfo.secondary} highlight={etaInfo.primary !== '—' && !operation.isDelayed} />
-              <HeroDataField label="Progreso" value={`${Math.round(progress * 100)}%`} secondary={progress < 1 ? 'En curso' : 'Completado'} />
-            </div>
-          </div>
-
-          {/* EMBARQUE */}
-          <div style={{ padding: '14px 16px', background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px' }}>
-            <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
-              Embarque
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px 16px' }}>
-              <HeroDataField label="Carrier · Vessel" value={`${operation.shippingLine || '—'}${operation.vessel ? ` · ${operation.vessel}` : ''}`} />
-              <HeroDataField label="Booking" value={operation.bookingNumber || '—'} mono />
-              <HeroDataField label="BL" value={operation.blNumber || '—'} mono />
-              <HeroDataField label="Container" value={operation.containerNumber || '—'} mono />
-            </div>
-          </div>
-
-          {/* CARGA */}
-          <div style={{ padding: '14px 16px', background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px' }}>
-            <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
-              Carga
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
-              <HeroDataField label="Peso" value={operation.weightKg ? `${operation.weightKg.toLocaleString()} kg` : '—'} />
-              <HeroDataField label="Volumen" value={operation.cbm ? `${operation.cbm} m³` : '—'} />
-              <HeroDataField label="Costo est." value={operation.costEstimate ? `$${operation.costEstimate.toLocaleString()}` : '—'} />
-            </div>
-          </div>
+        {/* LEFT: single compact card with all data in 4-col grid x 2 rows */}
+        <div style={{
+          padding: '14px 16px',
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '10px',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: '14px 18px',
+        }}>
+          <HeroDataField label="ETD" value={etdInfo.primary} secondary={etdInfo.secondary} />
+          <HeroDataField label="ETA" value={etaInfo.primary} secondary={etaInfo.secondary} highlight={etaInfo.primary !== '—' && !operation.isDelayed} />
+          <HeroDataField label="Carrier · Vessel" value={`${operation.shippingLine || '—'}${operation.vessel ? ` · ${operation.vessel}` : ''}`} />
+          <HeroDataField label="Booking" value={operation.bookingNumber || '—'} mono />
+          <HeroDataField label="Container" value={operation.containerNumber || '—'} mono />
+          <HeroDataField label="BL" value={operation.blNumber || '—'} mono />
+          <HeroDataField label="Peso" value={operation.weightKg ? `${operation.weightKg.toLocaleString()} kg` : '—'} />
+          <HeroDataField label="Volumen" value={operation.cbm ? `${operation.cbm} m³` : '—'} />
         </div>
 
         {/* RIGHT: square map */}
