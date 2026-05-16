@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
-import { LayoutGrid, DollarSign, BarChart3, Plus, Settings, ChevronRight, Sun } from 'lucide-react'
+import { LayoutGrid, DollarSign, BarChart3, Plus, Settings, ChevronRight, Sun, FileText } from 'lucide-react'
 
 interface SidebarProps {
   onNewOperation?: () => void
@@ -13,6 +13,7 @@ export default function Sidebar({ onNewOperation }: SidebarProps) {
 
   const isTodayActive = pathname === '/today'
   const isDashboardActive = pathname === '/dashboard' || pathname?.startsWith('/operations')
+  const isQuotesActive = pathname === '/quotes' || pathname?.startsWith('/quotes/')
 
   return (
     <aside
@@ -90,6 +91,12 @@ export default function Sidebar({ onNewOperation }: SidebarProps) {
           label="Dashboard"
           active={isDashboardActive}
           onClick={() => router.push('/dashboard')}
+        />
+        <NavItem
+          icon={<FileText size={17} strokeWidth={1.8} />}
+          label="Cotizaciones"
+          active={isQuotesActive}
+          onClick={() => router.push('/quotes')}
         />
         <NavItem icon={<DollarSign size={17} strokeWidth={1.8} />} label="Pricing" onClick={() => {}} />
         <NavItem icon={<BarChart3 size={17} strokeWidth={1.8} />} label="Reportes" onClick={() => {}} />

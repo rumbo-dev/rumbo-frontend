@@ -2,9 +2,21 @@
 
 import { useState } from 'react'
 import { Play } from 'lucide-react'
-import DemoModeOverlay from './DemoModeOverlay'
+import DemoModeOverlay, { Toast, DemoSummary } from './DemoModeOverlay'
 
-export default function DemoModeButton() {
+interface DemoModeButtonProps {
+  toasts?: Toast[]
+  durationSec?: number
+  summary?: DemoSummary
+  label?: string
+}
+
+export default function DemoModeButton({
+  toasts,
+  durationSec,
+  summary,
+  label = 'Demo Mode',
+}: DemoModeButtonProps) {
   const [running, setRunning] = useState(false)
 
   return (
@@ -29,10 +41,17 @@ export default function DemoModeButton() {
         }}
       >
         <Play size={13} fill="white" />
-        {running ? 'Demo en curso...' : 'Demo Mode'}
+        {running ? 'Demo en curso...' : label}
       </button>
 
-      {running && <DemoModeOverlay onComplete={() => setRunning(false)} />}
+      {running && (
+        <DemoModeOverlay
+          onComplete={() => setRunning(false)}
+          toasts={toasts}
+          durationSec={durationSec}
+          summary={summary}
+        />
+      )}
     </>
   )
 }

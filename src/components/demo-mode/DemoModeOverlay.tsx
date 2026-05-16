@@ -1,59 +1,88 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, ReactNode } from 'react'
 import { CheckCircle2, AlertTriangle, Mail, FileText, Ship, Bot } from 'lucide-react'
 
-type ToastType = 'info' | 'working' | 'success' | 'warning'
+export type ToastType = 'info' | 'working' | 'success' | 'warning'
 
-interface Toast {
+export interface Toast {
   delaySec: number
   type: ToastType
-  icon: React.ReactNode
+  icon: ReactNode
   title: string
 }
 
-const TOASTS: Toast[] = [
-  { delaySec: 2,  type: 'info',    icon: <Mail size={16} />,         title: 'Nuevo email recibido de MSC Mediterranean — confirmación de booking OP-23714' },
-  { delaySec: 8,  type: 'working', icon: <Bot size={16} />,          title: 'Rumbo: parseando email... extrayendo container, vessel, ETD/ETA' },
-  { delaySec: 14, type: 'success', icon: <CheckCircle2 size={16} />, title: 'Booking parseado — container TCLU8821704, vessel MSC Beatrice, ETA 6 May' },
-  { delaySec: 22, type: 'working', icon: <FileText size={16} />,     title: 'PDF detectado: BL_TCLU8821704.pdf — corriendo extracción visual' },
+export interface DemoSummary {
+  eyebrow: string
+  title: string
+  body: ReactNode
+}
+
+// Secuencia original de /today — exportada como salvavidas para regresión.
+export const DEFAULT_TOASTS_TODAY: Toast[] = [
+  { delaySec: 2,  type: 'info',    icon: <Mail size={16} />,          title: 'Nuevo email recibido de MSC Mediterranean — confirmación de booking OP-23714' },
+  { delaySec: 8,  type: 'working', icon: <Bot size={16} />,           title: 'Rumbo: parseando email... extrayendo container, vessel, ETD/ETA' },
+  { delaySec: 14, type: 'success', icon: <CheckCircle2 size={16} />,  title: 'Booking parseado — container TCLU8821704, vessel MSC Beatrice, ETA 6 May' },
+  { delaySec: 22, type: 'working', icon: <FileText size={16} />,      title: 'PDF detectado: BL_TCLU8821704.pdf — corriendo extracción visual' },
   { delaySec: 30, type: 'warning', icon: <AlertTriangle size={16} />, title: 'Discrepancia detectada: BL dice 18,200 kg, email body dice 18,400 kg — flageado para operador' },
-  { delaySec: 38, type: 'working', icon: <Ship size={16} />,         title: 'Verificando posición del vessel via MarineTraffic — MSC Beatrice en lat -12.1, lon -32.8' },
+  { delaySec: 38, type: 'working', icon: <Ship size={16} />,          title: 'Verificando posición del vessel via MarineTraffic — MSC Beatrice en lat -12.1, lon -32.8' },
   { delaySec: 46, type: 'warning', icon: <AlertTriangle size={16} />, title: 'Demora de ETA detectada: vessel atrasado 48h vs schedule' },
   { delaySec: 54, type: 'working', icon: <Bot size={16} />,           title: 'Drafteando notificación al cliente en español — "Estimado Andes Trading, su container..."' },
   { delaySec: 62, type: 'success', icon: <CheckCircle2 size={16} />,  title: 'Borrador listo para aprobar — guardado en OP-23714' },
 ]
 
+export const DEFAULT_SUMMARY_TODAY: DemoSummary = {
+  eyebrow: 'Demo completo',
+  title: 'Rumbo trabajó solo durante 65 segundos',
+  body: (
+    <>
+      Procesó <strong>1 email</strong>, <strong>1 PDF</strong>, detectó{' '}
+      <strong>1 alerta de demora</strong> y dejó <strong>1 borrador listo</strong> para aprobar.
+      <br />
+      <br />
+      <strong>Tiempo del operador: 0 minutos.</strong>
+    </>
+  ),
+}
+
 const TYPE_STYLES: Record<ToastType, { bg: string; fg: string; border: string }> = {
-  info:    { bg: 'var(--rumbo-navy-soft)', fg: 'var(--rumbo-navy)',     border: 'var(--rumbo-navy)' },
-  working: { bg: '#F0F4FF',                fg: '#4A5BC4',               border: '#4A5BC4' },
-  success: { bg: 'var(--success-bg)',      fg: 'var(--success-fg)',     border: 'var(--success-fg)' },
-  warning: { bg: 'var(--warning-bg)',      fg: 'var(--warning-fg)',     border: 'var(--warning-fg)' },
+  info:    { bg: 'var(--rumbo-navy-soft)', fg: 'var(--rumbo-navy)', border: 'var(--rumbo-navy)' },
+  working: { bg: '#F0F4FF',                fg: '#4A5BC4',           border: '#4A5BC4' },
+  success: { bg: 'var(--success-bg)',      fg: 'var(--success-fg)', border: 'var(--success-fg)' },
+  warning: { bg: 'var(--warning-bg)',      fg: 'var(--warning-fg)', border: 'var(--warning-fg)' },
 }
 
 interface DemoModeOverlayProps {
   onComplete: () => void
+  toasts?: Toast[]
+  durationSec?: number
+  summary?: DemoSummary
 }
 
-export default function DemoModeOverlay({ onComplete }: DemoModeOverlayProps) {
+export default function DemoModeOverlay({
+  onComplete,
+  toasts = DEFAULT_TOASTS_TODAY,
+  durationSec = 65,
+  summary = DEFAULT_SUMMARY_TODAY,
+}: DemoModeOverlayProps) {
   const [visibleToasts, setVisibleToasts] = useState<Toast[]>([])
   const [showSummary, setShowSummary] = useState(false)
 
   useEffect(() => {
     const timeouts: NodeJS.Timeout[] = []
 
-    TOASTS.forEach((toast) => {
+    toasts.forEach((toast) => {
       const t = setTimeout(() => {
         setVisibleToasts((prev) => [...prev, toast])
       }, toast.delaySec * 1000)
       timeouts.push(t)
     })
 
-    const summaryT = setTimeout(() => setShowSummary(true), 65 * 1000)
+    const summaryT = setTimeout(() => setShowSummary(true), durationSec * 1000)
     timeouts.push(summaryT)
 
     return () => timeouts.forEach(clearTimeout)
-  }, [])
+  }, [toasts, durationSec])
 
   return (
     <div style={{
@@ -132,7 +161,7 @@ export default function DemoModeOverlay({ onComplete }: DemoModeOverlayProps) {
               letterSpacing: '0.1em',
               marginBottom: '8px',
             }}>
-              Demo completo
+              {summary.eyebrow}
             </div>
             <h2 style={{
               fontSize: '24px',
@@ -140,7 +169,7 @@ export default function DemoModeOverlay({ onComplete }: DemoModeOverlayProps) {
               color: 'var(--text-primary)',
               margin: '0 0 16px 0',
             }}>
-              Rumbo trabajó solo durante 65 segundos
+              {summary.title}
             </h2>
             <div style={{
               fontSize: '15px',
@@ -148,11 +177,7 @@ export default function DemoModeOverlay({ onComplete }: DemoModeOverlayProps) {
               lineHeight: 1.6,
               marginBottom: '24px',
             }}>
-              Procesó <strong>1 email</strong>, <strong>1 PDF</strong>,
-              detectó <strong>1 alerta de demora</strong> y dejó
-              <strong> 1 borrador listo</strong> para aprobar.
-              <br /><br />
-              <strong>Tiempo del operador: 0 minutos.</strong>
+              {summary.body}
             </div>
             <button
               onClick={onComplete}
