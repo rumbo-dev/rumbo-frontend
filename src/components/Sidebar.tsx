@@ -1,15 +1,52 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { LayoutGrid, DollarSign, BarChart3, Plus, Settings, ChevronRight, Sun, FileText, Anchor } from 'lucide-react'
 
 interface SidebarProps {
   onNewOperation?: () => void
 }
 
+interface UserInfo {
+  fullName: string
+  team: string
+}
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://web-production-ad432.up.railway.app'
+
+const TEAM_LABEL: Record<string, string> = {
+  OPERATIONS: 'Operaciones',
+  PRICING: 'Pricing',
+  SALES: 'Sales',
+  CUSTOMER_SUPPORT: 'Customer Success',
+  CUSTOMER: 'Customer',
+  OPS: 'Operaciones',
+  ADMIN: 'Admin',
+}
+
+function initialsOf(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 export default function Sidebar({ onNewOperation }: SidebarProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const [user, setUser] = useState<UserInfo | null>(null)
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/today`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (d?.user?.fullName) {
+          setUser({ fullName: d.user.fullName, team: d.user.team || 'OPERATIONS' })
+        }
+      })
+      .catch(() => { /* ignore */ })
+  }, [])
 
   const isTodayActive = pathname === '/today'
   const isDashboardActive = pathname === '/dashboard' || pathname?.startsWith('/operations')
@@ -151,13 +188,15 @@ export default function Sidebar({ onNewOperation }: SidebarProps) {
               flexShrink: 0,
             }}
           >
-            JP
+            {user ? initialsOf(user.fullName) : '—'}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              Juan Pérez
+              {user?.fullName ?? '...'}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Operations</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+              {user ? (TEAM_LABEL[user.team] || user.team) : ''}
+            </div>
           </div>
           <ChevronRight size={14} style={{ color: 'var(--text-quaternary)', flexShrink: 0 }} />
         </div>
