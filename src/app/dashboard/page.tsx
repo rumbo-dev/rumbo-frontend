@@ -81,10 +81,12 @@ export default function Dashboard() {
   const [showEmailIntake, setShowEmailIntake] = useState(false)
 
   const [formData, setFormData] = useState({
-    operationCode: '', containerNumber: '', originPort: '', originCountry: '',
-    destinationPort: '', destinationCountry: '', weightKg: '', cbm: '',
-    incoterm: 'FOB', mode: 'FCL', clientName: '', clientEmail: '',
-    shippingLine: '', costEstimate: '', priority: 'NORMAL',
+    clientName: '',
+    clientReference: '',
+    incoterm: '',
+    mode: '',
+    originPort: '',
+    destinationPort: '',
   })
 
   useEffect(() => {
@@ -118,14 +120,17 @@ export default function Dashboard() {
       await axios.post(
         `${API_URL}/api/operations`,
         {
-          ...formData,
-          weightKg: parseFloat(formData.weightKg),
-          cbm: formData.cbm ? parseFloat(formData.cbm) : undefined,
-          costEstimate: parseFloat(formData.costEstimate),
+          clientName: formData.clientName,
+          clientReference: formData.clientReference || undefined,
+          incoterm: formData.incoterm || undefined,
+          mode: formData.mode || undefined,
+          originPort: formData.originPort || undefined,
+          destinationPort: formData.destinationPort || undefined,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       )
       setShowModal(false)
+      setFormData({ clientName: '', clientReference: '', incoterm: '', mode: '', originPort: '', destinationPort: '' })
       fetchData(token)
     } catch (error) {
       console.error('Error creating:', error)
@@ -471,23 +476,47 @@ export default function Dashboard() {
           <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface-card)', borderRadius: '10px', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflow: 'auto' }}>
             <div style={{ padding: '24px', borderBottom: '1px solid var(--border-default)' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Nueva operación</h2>
-              <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', margin: '4px 0 0 0' }}>Creá un nuevo envío para hacer seguimiento</p>
+              <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', margin: '4px 0 0 0' }}>Datos mínimos para arrancar — el resto se completa después.</p>
             </div>
             <form onSubmit={handleCreateOperation} style={{ padding: '24px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <FormField label="Código de operación" value={formData.operationCode} onChange={(v: string) => setFormData({ ...formData, operationCode: v })} required />
-                <FormField label="Número de container" value={formData.containerNumber} onChange={(v: string) => setFormData({ ...formData, containerNumber: v })} required />
-                <FormField label="Cliente" value={formData.clientName} onChange={(v: string) => setFormData({ ...formData, clientName: v })} required />
-                <FormField label="Carrier" value={formData.shippingLine} onChange={(v: string) => setFormData({ ...formData, shippingLine: v })} required />
-                <FormField label="Puerto de origen" value={formData.originPort} onChange={(v: string) => setFormData({ ...formData, originPort: v })} required />
-                <FormField label="País de origen (ISO)" value={formData.originCountry} onChange={(v: string) => setFormData({ ...formData, originCountry: v })} required />
-                <FormField label="Puerto de destino" value={formData.destinationPort} onChange={(v: string) => setFormData({ ...formData, destinationPort: v })} required />
-                <FormField label="País de destino (ISO)" value={formData.destinationCountry} onChange={(v: string) => setFormData({ ...formData, destinationCountry: v })} required />
-                <FormField label="Peso (kg)" value={formData.weightKg} onChange={(v: string) => setFormData({ ...formData, weightKg: v })} type="number" required />
-                <FormField label="Costo estimado (USD)" value={formData.costEstimate} onChange={(v: string) => setFormData({ ...formData, costEstimate: v })} type="number" required />
-                <FormSelect label="Incoterm" value={formData.incoterm} onChange={(v: string) => setFormData({ ...formData, incoterm: v })} options={['FOB', 'CIF', 'EXW', 'DDP']} />
-                <FormSelect label="Modo" value={formData.mode} onChange={(v: string) => setFormData({ ...formData, mode: v })} options={['FCL', 'LCL', 'AIR', 'LAND']} />
+              {/* Obligatorios */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+                  Obligatorios
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Código de operación</div>
+                    <div style={{
+                      padding: '8px 12px',
+                      background: 'var(--surface-app)',
+                      border: '1px dashed var(--border-default)',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      color: 'var(--text-tertiary)',
+                      fontFamily: 'ui-monospace, monospace',
+                    }}>
+                      Se asigna automáticamente al crear (OP-XXXX)
+                    </div>
+                  </div>
+                  <FormField label="Cliente" value={formData.clientName} onChange={(v: string) => setFormData({ ...formData, clientName: v })} required />
+                  <FormField label="Referencia del cliente" value={formData.clientReference} onChange={(v: string) => setFormData({ ...formData, clientReference: v })} required />
+                </div>
               </div>
+
+              {/* Opcionales */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+                  Opcionales
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <FormSelect label="Incoterm" value={formData.incoterm} onChange={(v: string) => setFormData({ ...formData, incoterm: v })} options={['', 'FOB', 'CIF', 'EXW', 'DDP', 'DAP']} />
+                  <FormSelect label="Modo" value={formData.mode} onChange={(v: string) => setFormData({ ...formData, mode: v })} options={['', 'FCL', 'LCL', 'AIR']} />
+                  <FormField label="Puerto de origen" value={formData.originPort} onChange={(v: string) => setFormData({ ...formData, originPort: v })} />
+                  <FormField label="Puerto de destino" value={formData.destinationPort} onChange={(v: string) => setFormData({ ...formData, destinationPort: v })} />
+                </div>
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '24px' }}>
                 <Button variant="secondary" onClick={() => setShowModal(false)}>Cancelar</Button>
                 <Button type="submit">Crear operación</Button>
