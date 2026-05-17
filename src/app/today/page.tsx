@@ -7,6 +7,7 @@ import DemoModeButton from '@/components/demo-mode/DemoModeButton'
 import PerformanceKpis from '@/components/today/PerformanceKpis'
 import AgentActivityFeed, { AgentActivityItem } from '@/components/today/AgentActivityFeed'
 import GrowthOpportunitiesCard, { GrowthOpportunity } from '@/components/today/GrowthOpportunitiesCard'
+import AgentDecisionModal from '@/components/AgentDecisionModal'
 
 interface TodayData {
   user: { name: string }
@@ -31,6 +32,7 @@ export default function TodayPage() {
   const [data, setData] = useState<TodayData | null>(null)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
+  const [openDecisionId, setOpenDecisionId] = useState<string | null>(null)
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -38,10 +40,10 @@ export default function TodayPage() {
   }
 
   const handleAgentClick = (item: AgentActivityItem) => {
-    if (item.operationCode) {
+    if (item.decisionId) {
+      setOpenDecisionId(item.decisionId)
+    } else if (item.operationCode) {
       router.push(`/operations/${item.operationCode}`)
-    } else if (item.decisionId) {
-      showToast('Trace de decisión — disponible próximamente')
     }
   }
 
@@ -340,6 +342,13 @@ export default function TodayPage() {
         }}>
           {toast}
         </div>
+      )}
+
+      {openDecisionId && (
+        <AgentDecisionModal
+          decisionId={openDecisionId}
+          onClose={() => setOpenDecisionId(null)}
+        />
       )}
     </div>
   )

@@ -15,6 +15,7 @@ import MarkupCalculator from './components/MarkupCalculator'
 import SurchargesBlock from './components/SurchargesBlock'
 import DraftEmailCard from './components/DraftEmailCard'
 import QuoteSidebar from './components/QuoteSidebar'
+import AgentDecisionModal from '@/components/AgentDecisionModal'
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || 'https://web-production-ad432.up.railway.app'
@@ -27,13 +28,14 @@ interface AgentActivityItem {
 }
 
 // Agent activity feed per quote — hardcoded for demo.
+// decisionId matches IDs seeded by scripts/seed-agent-decisions.ts when applicable.
 function agentActivityFor(quote: Quote): AgentActivityItem[] {
   if (quote.quoteCode === 'Q-0204') {
     return [
-      { agent: 'READ',   text: 'Parseó email entrante con 10 campos · confidence 98%',           minutesAgo: 80 },
+      { agent: 'READ',   text: 'Parseó email entrante con 10 campos · confidence 98%',           minutesAgo: 80, decisionId: 'ad-008' },
       { agent: 'READ',   text: 'Matched cliente Andes Trading SA en CRM · 3 ops históricas',     minutesAgo: 80 },
       { agent: 'QUOTE',  text: 'Consultó rates MSC, Maersk, Hapag-Lloyd, CMA-CGM',               minutesAgo: 12 },
-      { agent: 'QUOTE',  text: 'Comparó contrato vs spot · MSC contrato ganador por relación',   minutesAgo: 10 },
+      { agent: 'QUOTE',  text: 'Comparó contrato vs spot · MSC contrato ganador por relación',   minutesAgo: 10, decisionId: 'ad-010' },
       { agent: 'QUOTE',  text: 'Generó draft de email con tono cordial tuteo',                   minutesAgo: 8 },
     ]
   }
@@ -41,14 +43,14 @@ function agentActivityFor(quote: Quote): AgentActivityItem[] {
     return [
       { agent: 'READ',  text: 'Parsing WhatsApp · cliente identificado: Quest Industries', minutesAgo: 14 },
       { agent: 'READ',  text: 'Datos incompletos · 6 fields faltantes',                    minutesAgo: 13 },
-      { agent: 'QUOTE', text: 'Generó draft pidiendo info al cliente',                     minutesAgo: 10 },
+      { agent: 'QUOTE', text: 'Generó draft pidiendo info al cliente',                     minutesAgo: 10, decisionId: 'ad-004' },
     ]
   }
   if (quote.quoteCode === 'Q-0207') {
     return [
       { agent: 'READ',   text: 'Cliente respondió con data completa',          minutesAgo: 2880 },
       { agent: 'QUOTE',  text: 'Cotizó vs MSC, Maersk, COSCO · ganó Maersk',   minutesAgo: 2850 },
-      { agent: 'REPLY',  text: 'Quote enviada al cliente',                     minutesAgo: 2840 },
+      { agent: 'REPLY',  text: 'Quote enviada al cliente',                     minutesAgo: 2840, decisionId: 'ad-005' },
     ]
   }
   return [
@@ -69,6 +71,7 @@ export default function QuoteDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [openDecisionId, setOpenDecisionId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`${API_URL}/api/quotes/${id}`)
@@ -376,13 +379,20 @@ export default function QuoteDetailPage() {
           agentActivity={agentActivity}
           onAgentClick={(decisionId) => {
             if (decisionId) {
-              showToast('Trace de decisión — disponible próximamente')
+              setOpenDecisionId(decisionId)
             } else {
               showToast('Próximamente')
             }
           }}
         />
       </div>
+
+      {openDecisionId && (
+        <AgentDecisionModal
+          decisionId={openDecisionId}
+          onClose={() => setOpenDecisionId(null)}
+        />
+      )}
 
       {toast && (
         <div style={{
