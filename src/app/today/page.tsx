@@ -113,25 +113,6 @@ export default function TodayPage() {
               </Section>
             )}
 
-            {/* AGENT ACTIVITY + GROWTH (two columns) */}
-            {(data.agentActivity || data.growthOpportunities) && (
-              <section style={{ marginBottom: '40px' }}>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '3fr 2fr',
-                  gap: '16px',
-                  alignItems: 'stretch',
-                }}>
-                  {data.agentActivity && (
-                    <AgentActivityFeed items={data.agentActivity} onItemClick={handleAgentClick} />
-                  )}
-                  {data.growthOpportunities && (
-                    <GrowthOpportunitiesCard opportunities={data.growthOpportunities} />
-                  )}
-                </div>
-              </section>
-            )}
-
             {/* CRITICAL */}
             {data.critical.length > 0 && (
               <Section
@@ -243,6 +224,25 @@ export default function TodayPage() {
                 </button>
               </div>
             </section>
+
+            {/* AGENT ACTIVITY + GROWTH (two columns) */}
+            {(data.agentActivity || data.growthOpportunities) && (
+              <section style={{ marginBottom: '40px' }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '3fr 2fr',
+                  gap: '16px',
+                  alignItems: 'stretch',
+                }}>
+                  {data.agentActivity && (
+                    <AgentActivityFeed items={data.agentActivity} onItemClick={handleAgentClick} />
+                  )}
+                  {data.growthOpportunities && (
+                    <GrowthOpportunitiesCard opportunities={data.growthOpportunities} />
+                  )}
+                </div>
+              </section>
+            )}
 
             {/* ARRIVING */}
             {data.arrivingThisWeek.length > 0 && (
