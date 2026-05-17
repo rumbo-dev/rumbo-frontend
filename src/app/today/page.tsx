@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import DemoModeButton from '@/components/demo-mode/DemoModeButton'
+import PerformanceKpis from '@/components/today/PerformanceKpis'
+import AgentActivityFeed, { AgentActivityItem } from '@/components/today/AgentActivityFeed'
+import GrowthOpportunitiesCard, { GrowthOpportunity } from '@/components/today/GrowthOpportunitiesCard'
 
 interface TodayData {
   user: { name: string }
@@ -17,12 +20,30 @@ interface TodayData {
   pendingSuggestions: { total: number; estimatedMinutes: number }
   arrivingThisWeek: Array<{ date: string; label: string; operations: number; docsReady: number }>
   yesterdayStats: { emails: number; actions: number; closed: number; alerts: number }
+  // Nuevos campos (P2 — pueden no estar si el deploy no está sincronizado)
+  kpis?: { processed24h: number; exceptionsCaught: number; costAvoidedMtd: number; operatorHoursSaved: number }
+  agentActivity?: AgentActivityItem[]
+  growthOpportunities?: GrowthOpportunity[]
 }
 
 export default function TodayPage() {
   const router = useRouter()
   const [data, setData] = useState<TodayData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [toast, setToast] = useState<string | null>(null)
+
+  const showToast = (msg: string) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2500)
+  }
+
+  const handleAgentClick = (item: AgentActivityItem) => {
+    if (item.operationCode) {
+      router.push(`/operations/${item.operationCode}`)
+    } else if (item.decisionId) {
+      showToast('Trace de decisión — disponible próximamente')
+    }
+  }
 
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://web-production-ad432.up.railway.app'
@@ -77,6 +98,38 @@ export default function TodayPage() {
 
         {!loading && data && (
           <>
+            {/* PERFORMANCE KPIs */}
+            {data.kpis && (
+              <Section
+                iconBg="var(--rumbo-coral-soft)"
+                iconFg="var(--rumbo-coral)"
+                icon="✨"
+                title="Performance hoy"
+                subtitle="Lo que Rumbo hizo automático en las últimas 24h"
+              >
+                <PerformanceKpis kpis={data.kpis} />
+              </Section>
+            )}
+
+            {/* AGENT ACTIVITY + GROWTH (two columns) */}
+            {(data.agentActivity || data.growthOpportunities) && (
+              <section style={{ marginBottom: '40px' }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '3fr 2fr',
+                  gap: '16px',
+                  alignItems: 'stretch',
+                }}>
+                  {data.agentActivity && (
+                    <AgentActivityFeed items={data.agentActivity} onItemClick={handleAgentClick} />
+                  )}
+                  {data.growthOpportunities && (
+                    <GrowthOpportunitiesCard opportunities={data.growthOpportunities} />
+                  )}
+                </div>
+              </section>
+            )}
+
             {/* CRITICAL */}
             {data.critical.length > 0 && (
               <Section
@@ -270,6 +323,24 @@ export default function TodayPage() {
           </>
         )}
       </main>
+
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          padding: '14px 22px',
+          background: 'var(--text-primary)',
+          color: 'white',
+          borderRadius: '10px',
+          fontSize: '13px',
+          fontWeight: 500,
+          boxShadow: 'var(--shadow-lg)',
+          zIndex: 100,
+        }}>
+          {toast}
+        </div>
+      )}
     </div>
   )
 }
