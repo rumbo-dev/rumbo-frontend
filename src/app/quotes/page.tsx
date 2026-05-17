@@ -31,28 +31,28 @@ const API_URL =
 // ============================================================================
 
 const QUOTES_TOASTS: Toast[] = [
-  { delaySec: 0,  type: 'info',    icon: <MessageCircle size={16} />, title: "WhatsApp entrante de Mariana: 'Necesito cotizar 2x40 HC Shanghai-BUE'" },
-  { delaySec: 5,  type: 'working', icon: <Bot size={16} />,           title: 'READ parsing mensaje · Cliente identificado: Quest Industries (recurrente)' },
-  { delaySec: 12, type: 'warning', icon: <AlertTriangle size={16} />, title: 'READ datos incompletos · faltan producto, NCM, peso, incoterm, ready date' },
-  { delaySec: 18, type: 'working', icon: <Bot size={16} />,           title: 'QUOTE generó borrador pidiendo data · 94% confidence' },
-  { delaySec: 25, type: 'success', icon: <CheckCircle2 size={16} />,  title: 'Sales aprobó · borrador enviado al cliente' },
-  { delaySec: 32, type: 'info',    icon: <MessageCircle size={16} />, title: 'Cliente respondió con datos completos' },
-  { delaySec: 42, type: 'working', icon: <Bot size={16} />,           title: 'READ data completa · iniciando cotización' },
-  { delaySec: 50, type: 'working', icon: <Ship size={16} />,          title: 'QUOTE consultando MSC, Maersk, Hapag-Lloyd, CMA-CGM' },
-  { delaySec: 60, type: 'working', icon: <Bot size={16} />,           title: 'QUOTE comparando contratos vs spot · mejor: MSC contrato $3,800' },
-  { delaySec: 70, type: 'working', icon: <FileText size={16} />,      title: 'QUOTE calculando surcharges del lane Hamburg-BUE · BAF, CAF, THC, doc fee' },
-  { delaySec: 80, type: 'working', icon: <Bot size={16} />,           title: 'QUOTE draft de email generado · tono ajustado al cliente' },
-  { delaySec: 88, type: 'success', icon: <CheckCircle2 size={16} />,  title: 'Cotización lista en sales: $4,881 USD final · 90s total' },
+  { delaySec: 0,  type: 'info',    icon: <Mail size={16} />,          title: "Email entrante de Jorge Méndez (Andes Trading SA): cotización 1×40'HC Hamburgo → Buenos Aires" },
+  { delaySec: 8,  type: 'working', icon: <Bot size={16} />,           title: 'READ parseando email · Cliente identificado: Andes Trading SA (recurrente, 3 operaciones cerradas este año)' },
+  { delaySec: 15, type: 'success', icon: <CheckCircle2 size={16} />,  title: 'READ extracted 8 campos · 98% confidence · Repuestos automotores, NCM 8708.30.90, 18,400 kg, FOB' },
+  { delaySec: 22, type: 'working', icon: <FileText size={16} />,      title: 'QUOTE consultando contratos internos · Contratos activos detectados: CTR-MSC-2026-Q2 + CTR-HL-2026-H1' },
+  { delaySec: 30, type: 'working', icon: <Ship size={16} />,          title: 'QUOTE consultando tarifas spot · MSC, Maersk, Hapag-Lloyd, CMA-CGM' },
+  { delaySec: 38, type: 'success', icon: <CheckCircle2 size={16} />,  title: 'QUOTE comparando 4 opciones · Mejor combinación: MSC contrato $3,800 (preserva 240 TEU comprometidos)' },
+  { delaySec: 48, type: 'info',    icon: <AlertTriangle size={16} />, title: 'QUOTE evaluando alternativas · Maersk spot $3,720 descartado (no preserva contrato)' },
+  { delaySec: 58, type: 'working', icon: <Bot size={16} />,           title: 'QUOTE calculando surcharges Hamburgo-BUE · BAF $180, THC $335, doc fee $85, ISPS $25' },
+  { delaySec: 68, type: 'working', icon: <Bot size={16} />,           title: 'QUOTE generando borrador de email · Tono ajustado para cliente recurrente (tutea)' },
+  { delaySec: 78, type: 'working', icon: <Bot size={16} />,           title: 'QUOTE aplicando markup 12% (histórico de Andes Trading: 10-15%)' },
+  { delaySec: 85, type: 'success', icon: <CheckCircle2 size={16} />,  title: 'Cotización lista: $4,881 USD final · 4 carriers comparados · 1m 30s total' },
 ]
 
 const QUOTES_SUMMARY: DemoSummary = {
-  eyebrow: '90 segundos',
-  title: '45 minutos ahorrados',
+  eyebrow: '1 minuto 30 segundos',
+  title: '45 minutos ahorrados vs manual',
   body: (
     <>
-      Rumbo procesó <strong>1 quote request</strong>, parseó datos faltantes,
-      consultó <strong>4 carriers</strong>, calculó surcharges y dejó el draft
-      al cliente listo en sales.
+      Rumbo procesó <strong>el email de Andes Trading</strong>, comparó{' '}
+      <strong>4 carriers</strong>, recomendó MSC para preservar el contrato anual,
+      calculó surcharges y dejó el draft listo en sales con{' '}
+      <strong>$4,881 USD finales</strong>.
       <br />
       <br />
       <strong>Tiempo del operador: 0 minutos.</strong>
