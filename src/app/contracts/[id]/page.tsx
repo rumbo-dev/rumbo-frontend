@@ -169,13 +169,13 @@ export default function ContractDetailPage() {
           padding: '20px',
         }}>
           <DataCell label="Carrier" value={contract.carrier} icon={<Anchor size={13} />} />
-          <DataCell label="Container type" value={formatContainerType(contract.containerType)} />
+          <DataCell label="Tipo de contenedor" value={formatContainerType(contract.containerType)} />
           <DataCell label="Origen" value={contract.originPort} />
           <DataCell label="Destino" value={contract.destinationPort} />
-          <DataCell label="Rate USD" value={`$${contract.rateUsd.toLocaleString()}`} icon={<DollarSign size={13} />} />
-          <DataCell label="Volumen committed" value={`${contract.volumeCommittedTeu.toLocaleString()} TEU`} />
-          <DataCell label="Vigencia desde" value={formatDate(contract.validFrom)} icon={<Calendar size={13} />} />
-          <DataCell label="Vigencia hasta" value={formatDate(contract.validUntil)} icon={<Calendar size={13} />} />
+          <DataCell label="Tarifa USD" value={`$${contract.rateUsd.toLocaleString()}`} icon={<DollarSign size={13} />} />
+          <DataCell label="Volumen comprometido" value={`${contract.volumeCommittedTeu.toLocaleString()} TEU`} />
+          <DataCell label="Vigente desde" value={formatDate(contract.validFrom)} icon={<Calendar size={13} />} />
+          <DataCell label="Vigente hasta" value={formatDate(contract.validUntil)} icon={<Calendar size={13} />} />
         </div>
       </Section>
 

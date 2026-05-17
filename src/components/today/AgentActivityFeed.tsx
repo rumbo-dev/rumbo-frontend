@@ -55,7 +55,7 @@ export default function AgentActivityFeed({ items, onItemClick }: Props) {
           textTransform: 'uppercase',
           letterSpacing: '0.06em',
         }}>
-          Agent activity
+          Actividad de agentes
         </div>
         <div style={{
           fontSize: '12px',

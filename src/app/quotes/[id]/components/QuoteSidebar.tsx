@@ -51,7 +51,7 @@ export default function QuoteSidebar({ quote, agentActivity, onAgentClick }: Pro
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {quote.clientHistoryWinRate != null && (
-              <Stat label="Win rate" value={`${Math.round(quote.clientHistoryWinRate * 100)}%`} />
+              <Stat label="Tasa de cierre" value={`${Math.round(quote.clientHistoryWinRate * 100)}%`} />
             )}
             {quote.clientPreferredCarrier && (
               <Stat label="Carrier preferido" value={quote.clientPreferredCarrier} icon={<Star size={11} fill="currentColor" />} />
@@ -73,7 +73,7 @@ export default function QuoteSidebar({ quote, agentActivity, onAgentClick }: Pro
       </SideCard>
 
       {/* Agent activity */}
-      <SideCard icon={<Activity size={14} />} title="Agent activity">
+      <SideCard icon={<Activity size={14} />} title="Actividad de agentes">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {agentActivity.map((item, idx) => {
             const col = AGENT_COLORS[item.agent] || AGENT_COLORS.READ

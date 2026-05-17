@@ -25,13 +25,13 @@ export default function CarrierComparisonTable({ carriers }: Props) {
           }}>
             <Th>Carrier</Th>
             <Th>Vía</Th>
-            <Th align="right">Transit</Th>
-            <Th align="right">Sailings/sem</Th>
-            <Th align="right">On-time 12m</Th>
-            <Th align="right">Rate contrato</Th>
-            <Th align="right">Spot</Th>
+            <Th align="right">Tránsito</Th>
+            <Th align="right">Salidas/sem</Th>
+            <Th align="right">Puntualidad 12m</Th>
+            <Th align="right">Tarifa contrato</Th>
+            <Th align="right">Tarifa spot</Th>
             <Th align="right">Tu costo</Th>
-            <Th>Status</Th>
+            <Th>Estado</Th>
           </tr>
         </thead>
         <tbody>

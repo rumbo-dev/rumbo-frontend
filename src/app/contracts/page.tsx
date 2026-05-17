@@ -125,13 +125,13 @@ export default function ContractsPage() {
         )}
 
         {/* KPIs */}
-        <Section icon={<TrendingUp size={18} />} title="Resumen" subtitle="Volumen committed vs utilizado en contratos activos">
+        <Section icon={<TrendingUp size={18} />} title="Resumen" subtitle="Volumen comprometido vs utilizado en contratos activos">
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(4, 1fr)',
             gap: '14px',
           }}>
-            <KpiCard icon={<Anchor size={16} />} label="Total committed" value={`${totalCommitted.toLocaleString()} TEU`} subtext="en contratos no vencidos" accent="navy" />
+            <KpiCard icon={<Anchor size={16} />} label="Total comprometido" value={`${totalCommitted.toLocaleString()} TEU`} subtext="en contratos no vencidos" accent="navy" />
             <KpiCard icon={<TrendingUp size={16} />} label="Total utilizado" value={`${totalUsed.toLocaleString()} TEU`} subtext={`${totalCommitted > 0 ? Math.round((totalUsed / totalCommitted) * 100) : 0}% de utilización`} accent="coral" />
             <KpiCard icon={<Clock size={16} />} label="Vencen 30 días" value={expiringCount.toString()} subtext="renegociar ya" accent="coral" />
             <KpiCard icon={<AlertTriangle size={16} />} label="Subutilizados" value={underutilizedCount.toString()} subtext="riesgo de penalty" accent="navy" />
@@ -194,12 +194,12 @@ export default function ContractsPage() {
                   <tr style={{ background: 'var(--surface-hover)', borderBottom: '1px solid var(--border-default)' }}>
                     <Th>Carrier</Th>
                     <Th>Contrato</Th>
-                    <Th>Lane</Th>
-                    <Th>Container</Th>
-                    <Th align="right">Rate</Th>
+                    <Th>Ruta</Th>
+                    <Th>Tipo de contenedor</Th>
+                    <Th align="right">Tarifa</Th>
                     <Th>Uso</Th>
-                    <Th>Vence</Th>
-                    <Th>Status</Th>
+                    <Th>Vigente hasta</Th>
+                    <Th>Estado</Th>
                   </tr>
                 </thead>
                 <tbody>

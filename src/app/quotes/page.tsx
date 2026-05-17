@@ -268,7 +268,7 @@ export default function QuotesPage() {
             gap: '14px',
           }}>
             <KpiCard label="Hoy" value="18" subtext="cotizaciones · 14h ahorradas" accent="navy" />
-            <KpiCard label="Win rate 30d" value="31%" subtext="+7% vs trimestre" accent="coral" />
+            <KpiCard label="Tasa de cierre 30d" value="31%" subtext="+7% vs trimestre" accent="coral" />
             <KpiCard label="Tiempo promedio" value="1m 40s" subtext="vs 45min manual" accent="navy" />
             <KpiCard label="En carrera" value="$87,400" subtext="USD activos" accent="coral" />
           </div>

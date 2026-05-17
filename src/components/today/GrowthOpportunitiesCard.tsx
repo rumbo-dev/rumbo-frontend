@@ -46,7 +46,7 @@ export default function GrowthOpportunitiesCard({ opportunities }: Props) {
             textTransform: 'uppercase',
             letterSpacing: '0.06em',
           }}>
-            Growth opportunities
+            Oportunidades de crecimiento
           </div>
           <div style={{
             fontSize: '12px',

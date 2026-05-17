@@ -29,21 +29,21 @@ export default function PerformanceKpis({ kpis }: Props) {
       />
       <KpiCard
         icon={<ShieldAlert size={16} />}
-        label="Exceptions caught"
+        label="Excepciones detectadas"
         value={kpis.exceptionsCaught.toString()}
-        subtext="flagged por AI"
+        subtext="señaladas por AI"
         accent="coral"
       />
       <KpiCard
         icon={<DollarSign size={16} />}
-        label="Cost avoided MTD"
+        label="Costo evitado MTD"
         value={`$${kpis.costAvoidedMtd.toLocaleString('en-US')}`}
         subtext="demurrage + multas + errores"
         accent="navy"
       />
       <KpiCard
         icon={<Clock size={16} />}
-        label="Horas ahorradas"
+        label="Horas operativas ahorradas"
         value={`${kpis.operatorHoursSaved}h`}
         subtext="al equipo este mes"
         accent="coral"
