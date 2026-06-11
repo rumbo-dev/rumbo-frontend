@@ -14,10 +14,15 @@ export default function CarrierComparisonTable({ carriers }: Props) {
       background: 'var(--surface-card)',
       border: '1px solid var(--border-default)',
       borderRadius: '12px',
-      overflow: 'hidden',
+      overflowX: 'auto',     // fallback de scroll horizontal si aún así no entra
       boxShadow: 'var(--shadow-sm)',
     }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+      <table style={{
+        width: '100%',
+        borderCollapse: 'collapse',
+        fontSize: '13px',
+        tableLayout: 'auto',
+      }}>
         <thead>
           <tr style={{
             background: 'var(--surface-hover)',
@@ -26,7 +31,6 @@ export default function CarrierComparisonTable({ carriers }: Props) {
             <Th>Carrier</Th>
             <Th>Vía</Th>
             <Th align="right">Tránsito</Th>
-            <Th align="right">Salidas/sem</Th>
             <Th align="right">Puntualidad 12m</Th>
             <Th align="right">Tarifa contrato</Th>
             <Th align="right">Tarifa spot</Th>
@@ -50,30 +54,30 @@ export default function CarrierComparisonTable({ carriers }: Props) {
                 if (!c.isRecommended) e.currentTarget.style.background = 'transparent'
               }}
             >
-              <td style={{ padding: '14px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <td style={{ padding: '14px 14px', whiteSpace: 'nowrap' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
                   <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{c.name}</span>
                   {c.isRecommended && (
                     <span style={{
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '4px',
-                      padding: '2px 8px',
+                      padding: '2px 7px',
                       background: 'var(--rumbo-coral)',
                       color: 'white',
                       borderRadius: '999px',
-                      fontSize: '10px',
+                      fontSize: '9.5px',
                       fontWeight: 700,
                       textTransform: 'uppercase',
                       letterSpacing: '0.05em',
                     }}>
-                      <Star size={9} fill="white" />
+                      <Star size={8} fill="white" />
                       Recomendado
                     </span>
                   )}
                 </div>
               </td>
-              <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>
+              <td style={{ padding: '14px 14px', color: 'var(--text-secondary)' }}>
                 {c.via === 'transshipment' ? (
                   <span title={c.viaDetail || ''}>
                     Transbordo
@@ -81,16 +85,13 @@ export default function CarrierComparisonTable({ carriers }: Props) {
                   </span>
                 ) : 'Directo'}
               </td>
-              <td style={{ padding: '14px 16px', textAlign: 'right', color: 'var(--text-secondary)' }}>
+              <td style={{ padding: '14px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                 {c.transitDays}d
               </td>
-              <td style={{ padding: '14px 16px', textAlign: 'right', color: 'var(--text-secondary)' }}>
-                {c.sailingsPerWeek}
-              </td>
-              <td style={{ padding: '14px 16px', textAlign: 'right', color: c.onTimePct12m >= 90 ? 'var(--success-fg)' : c.onTimePct12m >= 85 ? 'var(--text-primary)' : 'var(--warning-fg)' }}>
+              <td style={{ padding: '14px 14px', textAlign: 'right', whiteSpace: 'nowrap', color: c.onTimePct12m >= 90 ? 'var(--success-fg)' : c.onTimePct12m >= 85 ? 'var(--text-primary)' : 'var(--warning-fg)' }}>
                 {c.onTimePct12m}%
               </td>
-              <td style={{ padding: '14px 16px', textAlign: 'right', color: c.contractRate ? 'var(--text-primary)' : 'var(--text-quaternary)', fontWeight: c.contractRate ? 600 : 400 }}>
+              <td style={{ padding: '14px 14px', textAlign: 'right', color: c.contractRate ? 'var(--text-primary)' : 'var(--text-quaternary)', fontWeight: c.contractRate ? 600 : 400, whiteSpace: 'nowrap' }}>
                 {c.contractRate ? formatUsd(c.contractRate) : '—'}
                 {c.contractRef && (
                   <div style={{ fontSize: '10.5px', color: 'var(--text-tertiary)', marginTop: '2px', fontWeight: 400 }}>
@@ -98,13 +99,13 @@ export default function CarrierComparisonTable({ carriers }: Props) {
                   </div>
                 )}
               </td>
-              <td style={{ padding: '14px 16px', textAlign: 'right', color: 'var(--text-secondary)' }}>
+              <td style={{ padding: '14px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                 {formatUsd(c.spotRate)}
               </td>
-              <td style={{ padding: '14px 16px', textAlign: 'right', color: 'var(--text-primary)', fontWeight: 700 }}>
+              <td style={{ padding: '14px 14px', textAlign: 'right', color: 'var(--text-primary)', fontWeight: 700, whiteSpace: 'nowrap' }}>
                 {formatUsd(c.yourFinalCost)}
               </td>
-              <td style={{ padding: '14px 16px', fontSize: '11.5px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+              <td style={{ padding: '14px 14px', fontSize: '11.5px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
                 {c.status}
               </td>
             </tr>
