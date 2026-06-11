@@ -34,7 +34,6 @@ export default function CarrierComparisonTable({ carriers }: Props) {
             <Th align="right">Puntualidad 12m</Th>
             <Th align="right">Tarifa contrato</Th>
             <Th align="right">Tarifa spot</Th>
-            <Th align="right">Tu costo</Th>
             <Th>Estado</Th>
           </tr>
         </thead>
@@ -101,9 +100,6 @@ export default function CarrierComparisonTable({ carriers }: Props) {
               </td>
               <td style={{ padding: '14px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                 {formatUsd(c.spotRate)}
-              </td>
-              <td style={{ padding: '14px 14px', textAlign: 'right', color: 'var(--text-primary)', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                {formatUsd(c.yourFinalCost)}
               </td>
               <td style={{ padding: '14px 14px', fontSize: '11.5px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
                 {c.status}

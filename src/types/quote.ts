@@ -34,7 +34,10 @@ export interface CarrierOption {
   contractRate?: number | null
   contractRef?: string | null
   spotRate: number
-  yourFinalCost: number
+  /** @deprecated ya no se renderiza en la tabla (la columna "Tu costo" se
+   * quitó porque duplicaba info que ya aparece en Pricing + Surcharges).
+   * Mantenido opcional para backwards compat con quotes existentes en BD. */
+  yourFinalCost?: number
   status: string
 }
 
