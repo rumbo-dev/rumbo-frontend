@@ -18,6 +18,14 @@ interface Task {
   createdByAi: boolean
 }
 
+interface SuggestedTaskSummary {
+  id: string
+  title: string
+  priority: 'urgent' | 'high' | 'medium' | 'low' | string
+  type: string
+  isInformational: boolean
+}
+
 interface Operation {
   id: string
   operationCode: string
@@ -37,6 +45,7 @@ interface Operation {
   currentOwner: string
   subStatus: string
   tasks?: Task[]
+  suggestedTasks?: SuggestedTaskSummary[]
 }
 
 type StatusFilter = 'ACTIVE' | 'IN_TRANSIT' | 'PENDING' | 'COMPLETED'
@@ -138,22 +147,45 @@ export default function Dashboard() {
   }
 
   const getAlertInfo = (op: Operation): { count: number; priority: 'HIGH' | 'MEDIUM' | 'LOW' | null; topTask?: string } => {
-    if (!op.tasks) return { count: 0, priority: null }
-    const aiPending = op.tasks.filter((t) => t.createdByAi && t.status === 'PENDING')
-    if (aiPending.length === 0) return { count: 0, priority: null }
-    
-    // Sort by priority: HIGH/CRITICAL > MEDIUM/NORMAL > LOW
-    const priorityOrder: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, NORMAL: 3, LOW: 4 }
-    const sorted = [...aiPending].sort((a, b) => (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99))
-    const topTask = sorted[0]?.title || ''
-    
-    const high = aiPending.filter((t) => t.priority === 'HIGH' || t.priority === 'CRITICAL').length
-    const medium = aiPending.filter((t) => t.priority === 'MEDIUM' || t.priority === 'NORMAL').length
-    const low = aiPending.filter((t) => t.priority === 'LOW').length
-    
-    if (high > 0) return { count: aiPending.length, priority: 'HIGH', topTask }
-    if (medium > 0) return { count: aiPending.length, priority: 'MEDIUM', topTask }
-    if (low > 0) return { count: aiPending.length, priority: 'LOW', topTask }
+    // Combinar Task[] (legacy) + SuggestedTask[] (nueva fuente de demo)
+    // en una sola vista de "alertas pendientes".
+    type Entry = { title: string; priority: 'HIGH' | 'MEDIUM' | 'LOW' }
+    const entries: Entry[] = []
+
+    // Legacy Task[]: AI-generated + PENDING
+    if (op.tasks) {
+      for (const t of op.tasks) {
+        if (t.createdByAi && t.status === 'PENDING') {
+          if (t.priority === 'HIGH' || t.priority === 'CRITICAL') entries.push({ title: t.title, priority: 'HIGH' })
+          else if (t.priority === 'MEDIUM' || t.priority === 'NORMAL') entries.push({ title: t.title, priority: 'MEDIUM' })
+          else if (t.priority === 'LOW') entries.push({ title: t.title, priority: 'LOW' })
+        }
+      }
+    }
+
+    // SuggestedTask[]: pending status, mapped a HIGH/MEDIUM/LOW
+    if (op.suggestedTasks) {
+      for (const s of op.suggestedTasks) {
+        if (s.isInformational) continue
+        if (s.priority === 'urgent' || s.priority === 'high') entries.push({ title: s.title, priority: 'HIGH' })
+        else if (s.priority === 'medium') entries.push({ title: s.title, priority: 'MEDIUM' })
+        else if (s.priority === 'low') entries.push({ title: s.title, priority: 'LOW' })
+      }
+    }
+
+    if (entries.length === 0) return { count: 0, priority: null }
+
+    const order: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 }
+    const sorted = [...entries].sort((a, b) => order[a.priority] - order[b.priority])
+    const topTask = sorted[0].title
+
+    const high = entries.filter((e) => e.priority === 'HIGH').length
+    const medium = entries.filter((e) => e.priority === 'MEDIUM').length
+    const low = entries.filter((e) => e.priority === 'LOW').length
+
+    if (high > 0) return { count: entries.length, priority: 'HIGH', topTask }
+    if (medium > 0) return { count: entries.length, priority: 'MEDIUM', topTask }
+    if (low > 0) return { count: entries.length, priority: 'LOW', topTask }
     return { count: 0, priority: null }
   }
 
