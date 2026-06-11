@@ -6,6 +6,8 @@ import { ArrowLeft, MoreHorizontal, Send, Mail, FileText, AlertCircle, Check, Sp
 import RouteMapReal from './RouteMapReal'
 import { StatusBadge, Button, Card, TeamAvatar, getCountryFlag, getCountryNameES } from '@/components/index'
 import Sidebar from '@/components/Sidebar'
+import AttachmentsList, { Attachment as AttachmentT } from '@/components/AttachmentsList'
+import StakeholdersPanel, { Stakeholder } from '@/components/StakeholdersPanel'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
@@ -50,6 +52,32 @@ interface Operation {
   tasks: Task[]
   journeySteps: JourneyStep[]
   timelineEvents: TimelineEvent[]
+  attachments?: RawAttachment[]
+  stakeholders?: Stakeholder[]
+  // Murchison demo extras
+  finalConsignee?: string | null
+  containerNumbers?: string | null
+  hblNumbers?: string | null
+  mblNumber?: string | null
+  cartons?: number | null
+  cargoDescription?: string | null
+  imoClass?: string | null
+  etdOrigin?: string | null
+  etaDestination?: string | null
+}
+
+// Backend devuelve attachments sin publicUrl en /api/operations/:id (es la
+// shape raw de Prisma). El cliente construye el publicUrl al renderizar.
+interface RawAttachment {
+  id: string
+  filename: string
+  storedPath: string
+  mimeType: string
+  sizeBytes: number
+  documentType?: string | null
+  description?: string | null
+  source?: string | null
+  receivedAt?: string | null
 }
 
 interface Task {
@@ -302,18 +330,52 @@ export default function OperationPage() {
 
           </div>
 
-          {/* ============ DOCUMENTS (full width) ============ */}
-          <div style={{ marginTop: '20px' }}>
-            <SectionCard
-              title="Documentos"
-              subtitle="BL, factura, packing list"
-              icon={<FileText size={15} strokeWidth={1.8} />}
-              iconBg="var(--surface-muted)"
-              iconColor="var(--text-secondary)"
-            >
-              <DocumentsList />
-            </SectionCard>
-          </div>
+          {/* ============ STAKEHOLDERS + DOCUMENTS (two columns) ============ */}
+          {((operation.stakeholders && operation.stakeholders.length > 0) ||
+            (operation.attachments && operation.attachments.length > 0)) && (
+            <div style={{
+              marginTop: '20px',
+              display: 'grid',
+              gridTemplateColumns:
+                operation.stakeholders && operation.stakeholders.length > 0 &&
+                operation.attachments && operation.attachments.length > 0
+                  ? '1fr 1.4fr'
+                  : '1fr',
+              gap: '20px',
+              alignItems: 'flex-start',
+            }}>
+              {operation.stakeholders && operation.stakeholders.length > 0 && (
+                <StakeholdersPanel stakeholders={operation.stakeholders} />
+              )}
+              {operation.attachments && operation.attachments.length > 0 && (
+                <div>
+                  <AttachmentsList
+                    title="Documentos asociados"
+                    subtitle={`${operation.attachments.length} adjuntos · click para ver`}
+                    attachments={operation.attachments.map((a) => ({
+                      ...a,
+                      publicUrl: `${API_URL}/static/${a.storedPath}`,
+                    }))}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ============ DOCUMENTS placeholder (legacy stub) ============ */}
+          {(!operation.attachments || operation.attachments.length === 0) && (
+            <div style={{ marginTop: '20px' }}>
+              <SectionCard
+                title="Documentos"
+                subtitle="BL, factura, packing list"
+                icon={<FileText size={15} strokeWidth={1.8} />}
+                iconBg="var(--surface-muted)"
+                iconColor="var(--text-secondary)"
+              >
+                <DocumentsList />
+              </SectionCard>
+            </div>
+          )}
 
           {/* ============ COMUNICACIONES (collapsed, at the end) ============ */}
           <div style={{ marginTop: '20px' }}>
@@ -666,6 +728,29 @@ function TaskSuggestionItem({ task }: { task: Task }) {
 // TIMELINE NARRATIVE
 // ============================================================================
 
+// Detecta severity del evento por title o eventType
+function deriveSeverity(title: string, eventType: string): 'high' | 'medium' | 'low' | null {
+  if (/⚠|ALERTA|CRÍTIC/i.test(title)) return 'high'
+  if (eventType === 'DISPUTE_OPENED') return 'high'
+  if (eventType === 'SCHEDULE_CHANGED' || eventType === 'ITINERARY_CHANGED') return 'medium'
+  return null
+}
+
+// Label visual + color del source (agente origen, carrier, etc.)
+const SOURCE_DISPLAY: Record<string, { label: string; color: string; icon: string }> = {
+  agent_origin:      { label: 'Agente origen',      color: 'var(--rumbo-coral)', icon: '🌏' },
+  carrier:           { label: 'Carrier',             color: 'var(--rumbo-navy)',  icon: '🚢' },
+  customer:          { label: 'Cliente',             color: 'var(--success-fg)',  icon: '👤' },
+  destination_agent: { label: 'Despachante destino', color: 'var(--info-fg)',     icon: '📦' },
+  forwarder:         { label: 'Forwarder',           color: 'var(--warning-fg)',  icon: '🎯' },
+}
+
+const SEVERITY_STYLES = {
+  high:   { border: 'var(--danger-fg)',  bg: 'var(--danger-bg)',  badge: '⚠ Alerta' },
+  medium: { border: 'var(--warning-fg)', bg: 'var(--warning-bg)', badge: '⚡ Atención' },
+  low:    { border: 'var(--border-default)', bg: 'transparent',   badge: '' },
+}
+
 function TimelineNarrative({ events, journeySteps }: { events: TimelineEvent[]; journeySteps: JourneyStep[] }) {
   // Combine events + journey steps with narrative notes into one chronological feed
   const items = [
@@ -676,6 +761,7 @@ function TimelineNarrative({ events, journeySteps }: { events: TimelineEvent[]; 
       description: e.description,
       type: 'event' as const,
       eventType: e.eventType,
+      source: e.source,
       sourceTeam: e.sourceTeam,
     })),
     ...journeySteps
@@ -687,59 +773,115 @@ function TimelineNarrative({ events, journeySteps }: { events: TimelineEvent[]; 
         description: s.narrativeNote || '',
         type: 'step' as const,
         eventType: 'STEP_COMPLETED',
+        source: undefined as string | undefined,
         sourceTeam: undefined,
       })),
   ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 
   return (
     <div style={{ padding: '4px 0' }}>
-      {items.map((item, idx) => (
-        <div key={item.id} style={{ display: 'flex', gap: '14px', padding: '14px 20px', position: 'relative' }}>
-          {/* Vertical line */}
-          {idx < items.length - 1 && (
-            <div style={{
-              position: 'absolute',
-              left: '32px',
-              top: '32px',
-              bottom: '-14px',
-              width: '1px',
-              background: 'var(--border-default)',
-            }} />
-          )}
-          {/* Dot */}
-          <div style={{
-            width: '10px',
-            height: '10px',
-            borderRadius: '50%',
-            background: getEventColor(item.eventType),
-            border: '2px solid var(--surface-card)',
-            boxShadow: '0 0 0 1px var(--border-default)',
-            flexShrink: 0,
-            marginTop: '5px',
-            marginLeft: '12px',
-          }} />
-          {/* Content */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '2px' }}>
-              {item.title}
-            </div>
-            {item.description && (
-              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '19px', marginBottom: '4px' }}>
-                {item.description}
-              </div>
+      {items.map((item, idx) => {
+        const severity = deriveSeverity(item.title, item.eventType)
+        const sevStyle = severity ? SEVERITY_STYLES[severity] : null
+        const sourceInfo = item.source ? SOURCE_DISPLAY[item.source] : null
+
+        return (
+          <div
+            key={item.id}
+            style={{
+              display: 'flex',
+              gap: '14px',
+              padding: '14px 20px',
+              position: 'relative',
+              background: sevStyle?.bg ?? 'transparent',
+              borderLeft: sevStyle ? `3px solid ${sevStyle.border}` : '3px solid transparent',
+              marginLeft: severity ? '-3px' : 0,
+              transition: 'background 120ms ease',
+            }}
+          >
+            {/* Vertical line */}
+            {idx < items.length - 1 && (
+              <div style={{
+                position: 'absolute',
+                left: severity ? '35px' : '32px',
+                top: '32px',
+                bottom: '-14px',
+                width: '1px',
+                background: 'var(--border-default)',
+              }} />
             )}
-            <div style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>{formatDateTime(item.timestamp)}</span>
-              {item.sourceTeam && (
-                <>
-                  <span>·</span>
-                  <span>{getTeamLabel(item.sourceTeam)}</span>
-                </>
+            {/* Dot */}
+            <div style={{
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              background: severity === 'high'
+                ? 'var(--danger-fg)'
+                : severity === 'medium'
+                ? 'var(--warning-fg)'
+                : getEventColor(item.eventType),
+              border: '2px solid var(--surface-card)',
+              boxShadow: '0 0 0 1px var(--border-default)',
+              flexShrink: 0,
+              marginTop: '5px',
+              marginLeft: '12px',
+            }} />
+            {/* Content */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '3px' }}>
+                <span style={{
+                  fontSize: '13.5px',
+                  fontWeight: severity ? 600 : 500,
+                  color: severity === 'high' ? 'var(--danger-fg)' : 'var(--text-primary)',
+                }}>
+                  {item.title}
+                </span>
+                {sevStyle?.badge && (
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    padding: '2px 6px',
+                    background: sevStyle.border,
+                    color: 'white',
+                    borderRadius: '4px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                  }}>
+                    {sevStyle.badge}
+                  </span>
+                )}
+              </div>
+              {item.description && (
+                <div style={{
+                  fontSize: '13px',
+                  color: 'var(--text-secondary)',
+                  lineHeight: '19px',
+                  marginBottom: '4px',
+                }}>
+                  {item.description}
+                </div>
               )}
+              <div style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span>{formatDateTime(item.timestamp)}</span>
+                {sourceInfo && (
+                  <>
+                    <span>·</span>
+                    <span style={{ color: sourceInfo.color, fontWeight: 500 }}>
+                      {sourceInfo.icon} {sourceInfo.label}
+                    </span>
+                  </>
+                )}
+                {item.sourceTeam && !sourceInfo && (
+                  <>
+                    <span>·</span>
+                    <span>{getTeamLabel(item.sourceTeam)}</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
