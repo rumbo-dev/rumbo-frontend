@@ -8,6 +8,7 @@ import { StatusBadge, Button, Card, TeamAvatar, getCountryFlag, getCountryNameES
 import Sidebar from '@/components/Sidebar'
 import AttachmentsList, { Attachment as AttachmentT } from '@/components/AttachmentsList'
 import StakeholdersPanel, { Stakeholder } from '@/components/StakeholdersPanel'
+import SuggestedTasksPanel from '@/components/SuggestedTasksPanel'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
@@ -275,6 +276,11 @@ export default function OperationPage() {
 
           {/* ============ HERO ============ */}
           <HeroSection operation={operation} subStatusInfo={subStatusInfo} progress={progress} />
+
+          {/* ============ SUGGESTED TASKS (panel destacado, solo si hay) ============ */}
+          <div style={{ marginTop: '20px' }}>
+            <SuggestedTasksPanel operationId={operation.id} />
+          </div>
 
           {/* ============ TWO-COLUMN GRID: Suggestions + Timeline ============ */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '20px', marginTop: '20px' }}>
