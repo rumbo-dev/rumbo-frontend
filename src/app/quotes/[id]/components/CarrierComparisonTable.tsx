@@ -90,13 +90,11 @@ export default function CarrierComparisonTable({ carriers }: Props) {
               <td style={{ padding: '14px 14px', textAlign: 'right', whiteSpace: 'nowrap', color: c.onTimePct12m >= 90 ? 'var(--success-fg)' : c.onTimePct12m >= 85 ? 'var(--text-primary)' : 'var(--warning-fg)' }}>
                 {c.onTimePct12m}%
               </td>
-              <td style={{ padding: '14px 14px', textAlign: 'right', color: c.contractRate ? 'var(--text-primary)' : 'var(--text-quaternary)', fontWeight: c.contractRate ? 600 : 400, whiteSpace: 'nowrap' }}>
+              <td
+                style={{ padding: '14px 14px', textAlign: 'right', color: c.contractRate ? 'var(--text-primary)' : 'var(--text-quaternary)', fontWeight: c.contractRate ? 600 : 400, whiteSpace: 'nowrap' }}
+                title={c.contractRef || undefined}
+              >
                 {c.contractRate ? formatUsd(c.contractRate) : '—'}
-                {c.contractRef && (
-                  <div style={{ fontSize: '10.5px', color: 'var(--text-tertiary)', marginTop: '2px', fontWeight: 400 }}>
-                    {c.contractRef}
-                  </div>
-                )}
               </td>
               <td style={{ padding: '14px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                 {formatUsd(c.spotRate)}
