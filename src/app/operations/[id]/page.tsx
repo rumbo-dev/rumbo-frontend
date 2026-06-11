@@ -6,6 +6,8 @@ import { ArrowLeft, MoreHorizontal, Send, Mail, FileText, AlertCircle, Check, Sp
 import RouteMapReal from './RouteMapReal'
 import { StatusBadge, Button, Card, TeamAvatar, getCountryFlag, getCountryNameES } from '@/components/index'
 import Sidebar from '@/components/Sidebar'
+import AttachmentsList, { Attachment as AttachmentT } from '@/components/AttachmentsList'
+import StakeholdersPanel, { Stakeholder } from '@/components/StakeholdersPanel'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
@@ -50,6 +52,32 @@ interface Operation {
   tasks: Task[]
   journeySteps: JourneyStep[]
   timelineEvents: TimelineEvent[]
+  attachments?: RawAttachment[]
+  stakeholders?: Stakeholder[]
+  // Murchison demo extras
+  finalConsignee?: string | null
+  containerNumbers?: string | null
+  hblNumbers?: string | null
+  mblNumber?: string | null
+  cartons?: number | null
+  cargoDescription?: string | null
+  imoClass?: string | null
+  etdOrigin?: string | null
+  etaDestination?: string | null
+}
+
+// Backend devuelve attachments sin publicUrl en /api/operations/:id (es la
+// shape raw de Prisma). El cliente construye el publicUrl al renderizar.
+interface RawAttachment {
+  id: string
+  filename: string
+  storedPath: string
+  mimeType: string
+  sizeBytes: number
+  documentType?: string | null
+  description?: string | null
+  source?: string | null
+  receivedAt?: string | null
 }
 
 interface Task {
@@ -302,18 +330,52 @@ export default function OperationPage() {
 
           </div>
 
-          {/* ============ DOCUMENTS (full width) ============ */}
-          <div style={{ marginTop: '20px' }}>
-            <SectionCard
-              title="Documentos"
-              subtitle="BL, factura, packing list"
-              icon={<FileText size={15} strokeWidth={1.8} />}
-              iconBg="var(--surface-muted)"
-              iconColor="var(--text-secondary)"
-            >
-              <DocumentsList />
-            </SectionCard>
-          </div>
+          {/* ============ STAKEHOLDERS + DOCUMENTS (two columns) ============ */}
+          {((operation.stakeholders && operation.stakeholders.length > 0) ||
+            (operation.attachments && operation.attachments.length > 0)) && (
+            <div style={{
+              marginTop: '20px',
+              display: 'grid',
+              gridTemplateColumns:
+                operation.stakeholders && operation.stakeholders.length > 0 &&
+                operation.attachments && operation.attachments.length > 0
+                  ? '1fr 1.4fr'
+                  : '1fr',
+              gap: '20px',
+              alignItems: 'flex-start',
+            }}>
+              {operation.stakeholders && operation.stakeholders.length > 0 && (
+                <StakeholdersPanel stakeholders={operation.stakeholders} />
+              )}
+              {operation.attachments && operation.attachments.length > 0 && (
+                <div>
+                  <AttachmentsList
+                    title="Documentos asociados"
+                    subtitle={`${operation.attachments.length} adjuntos · click para ver`}
+                    attachments={operation.attachments.map((a) => ({
+                      ...a,
+                      publicUrl: `${API_URL}/static/${a.storedPath}`,
+                    }))}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ============ DOCUMENTS placeholder (legacy stub) ============ */}
+          {(!operation.attachments || operation.attachments.length === 0) && (
+            <div style={{ marginTop: '20px' }}>
+              <SectionCard
+                title="Documentos"
+                subtitle="BL, factura, packing list"
+                icon={<FileText size={15} strokeWidth={1.8} />}
+                iconBg="var(--surface-muted)"
+                iconColor="var(--text-secondary)"
+              >
+                <DocumentsList />
+              </SectionCard>
+            </div>
+          )}
 
           {/* ============ COMUNICACIONES (collapsed, at the end) ============ */}
           <div style={{ marginTop: '20px' }}>
